@@ -1,0 +1,4041 @@
+---
+title: "DHA Study"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rstatix)
+library(ggsignif)
+library(gtsummary)
+library(readxl)
+library(ggplot2)
+library(ggpubr)
+library(dbplyr)
+library(Hmisc)
+library(psych)      # correlation p
+library(writexl)      # export excel
+
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(dendextend) # for comparing two dendrograms
+```
+
+
+```{r}
+# calculate records for each ID (mean)
+{
+  n=1
+  m=1
+  print(TG_52[1,1])
+  print(n)
+  for (i in 2:156) {
+    if(TG_52[i,1]==TG_52[(i-1),1]){
+      i=i+1
+      m=m+1
+    }else{
+      print(TG_52[i,1])
+      n=n+1
+      print(n)
+      print(m)
+      m=1
+    }
+  }
+}
+
+# CSF HexCer, 26 * 6, 21 ###########################################################
+HexCer_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "HexCer 30.1")
+
+HexCer_52 = HexCer_52[
+  order( HexCer_52[,1]),
+  ]
+
+b = HexCer_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           HexCer_52[i,1])
+  b[i,1] = a
+}
+HexCer_52[,1]=b
+
+HexCer_mean = data.frame(matrix(ncol=length(HexCer_52),nrow=26, dimnames=list(NULL, colnames(HexCer_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  HexCer_mean[i,1] = HexCer_52[i_1,1]
+  HexCer_mean[i,2:length(HexCer_52)] = colMeans(HexCer_52[c(i_1:(i_1+5)),-1])
+}
+
+HexCer_mean_12 = data.frame(matrix(ncol=length(HexCer_52),nrow=52, dimnames=list(NULL, colnames(HexCer_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  HexCer_mean_12[i,1] = HexCer_52[i_1,1]
+  HexCer_mean_12[i,2:length(HexCer_52)] = colMeans(HexCer_52[c(i_1:(i_1+2)),-1])
+}
+
+# Cer, 26 * 6, 12 ###########################################################
+Cer_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "Cer")
+Cer_52 = Cer_52[
+  order( Cer_52[,1]),
+  ]
+
+b = Cer_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           Cer_52[i,1])
+  b[i,1] = a
+}
+Cer_52[,1]=b
+
+Cer_mean = data.frame(matrix(ncol=length(Cer_52),nrow=26, dimnames=list(NULL, colnames(Cer_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  Cer_mean[i,1] = Cer_52[i_1,1]
+  Cer_mean[i,2:length(Cer_52)] = colMeans(Cer_52[c(i_1:(i_1+5)),-1])
+}
+
+Cer_mean_12 = data.frame(matrix(ncol=length(Cer_52),nrow=52, dimnames=list(NULL, colnames(Cer_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  Cer_mean_12[i,1] = Cer_52[i_1,1]
+  Cer_mean_12[i,2:length(Cer_52)] = colMeans(Cer_52[c(i_1:(i_1+2)),-1])
+}
+
+# SM, 26 * 6, 16 ###########################################################
+SM_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "SM")
+SM_52 = SM_52[
+  order(SM_52[,1]),
+]
+
+b = SM_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           SM_52[i,1])
+  b[i,1] = a
+}
+SM_52[,1]=b
+
+DG_mean = data.frame(matrix(ncol=length(DG_52),nrow=26, dimnames=list(NULL, colnames(DG_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  DG_mean[i,1] = DG_52[i_1,1]
+  DG_mean[i,2:length(DG_52)] = colMeans(DG_52[c(i_1:(i_1+5)),-1])
+}
+
+SM_mean_12 = data.frame(matrix(ncol=length(SM_52),nrow=52, dimnames=list(NULL, colnames(SM_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  SM_mean_12[i,1] = SM_52[i_1,1]
+  SM_mean_12[i,2:length(SM_52)] = colMeans(SM_52[c(i_1:(i_1+2)),-1])
+}
+
+# CE,26 * 6 , 11 ###########################################################
+CE_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "CE")
+CE_52 = CE_52[
+  order(CE_52[,1]),
+]
+
+b = CE_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           CE_52[i,1])
+  b[i,1] = a
+}
+CE_52[,1]=b
+
+HexCer_mean = data.frame(matrix(ncol=length(HexCer_52),nrow=26, dimnames=list(NULL, colnames(HexCer_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  HexCer_mean[i,1] = HexCer_52[i_1,1]
+  HexCer_mean[i,2:length(HexCer_52)] = colMeans(HexCer_52[c(i_1:(i_1+5)),-1])
+}
+
+CE_mean_12 = data.frame(matrix(ncol=length(CE_52),nrow=52, dimnames=list(NULL, colnames(CE_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  CE_mean_12[i,1] = CE_52[i_1,1]
+  CE_mean_12[i,2:length(CE_52)] = colMeans(CE_52[c(i_1:(i_1+2)),-1])
+}
+
+# DG, 26 * 6 , 51 ###########################################################
+DG_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "DG")
+DG_52 = DG_52[
+  order(DG_52[,1]),
+]
+
+b = DG_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           DG_52[i,1])
+  b[i,1] = a
+}
+DG_52[,1]=b
+
+PC_mean = data.frame(matrix(ncol=length(PC_52),nrow=26, dimnames=list(NULL, colnames(PC_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  PC_mean[i,1] = PC_52[i_1,1]
+  PC_mean[i,2:length(PC_52)] = colMeans(PC_52[c(i_1:(i_1+5)),-1])
+}
+
+DG_mean_12 = data.frame(matrix(ncol=length(DG_52),nrow=52, dimnames=list(NULL, colnames(DG_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  DG_mean_12[i,1] = DG_52[i_1,1]
+  DG_mean_12[i,2:length(DG_52)] = colMeans(DG_52[c(i_1:(i_1+2)),-1])
+}
+
+# TG, 26 * 6 , 19 ###########################################################
+TG_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "TG")
+TG_52 = TG_52[
+  order(TG_52[,1]),
+  ]
+
+b = TG_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           TG_52[i,1])
+  b[i,1] = a
+}
+TG_52[,1]=b
+
+SM_mean = data.frame(matrix(ncol=length(SM_52),nrow=26, dimnames=list(NULL, colnames(SM_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  SM_mean[i,1] = SM_52[i_1,1]
+  SM_mean[i,2:length(SM_52)] = colMeans(SM_52[c(i_1:(i_1+5)),-1])
+}
+
+TG_mean_12 = data.frame(matrix(ncol=length(TG_52),nrow=52, dimnames=list(NULL, colnames(TG_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  TG_mean_12[i,1] = TG_52[i_1,1]
+  TG_mean_12[i,2:length(TG_52)] = colMeans(TG_52[c(i_1:(i_1+2)),-1])
+}
+
+# PC, 26 * 6 , 32 ###########################################################
+PC_52 = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical CSF - Classes Summary - 100 uL CSF starting material 3 31 2021.xlsx", sheet = "PC")
+PC_52 = PC_52[
+  order(PC_52[,1]),
+  ]
+
+b = PC_52[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           PC_52[i,1])
+  b[i,1] = a
+}
+PC_52[,1]=b
+
+PC_mean = data.frame(matrix(ncol=length(TG_52),nrow=26, dimnames=list(NULL, colnames(TG_52))))
+for (i in 1:26) {
+  i_1 = 1+6*(i-1)
+  TG_mean[i,1] = TG_52[i_1,1]
+  TG_mean[i,2:length(TG_52)] = colMeans(TG_52[c(i_1:(i_1+5)),-1])
+}
+
+PC_mean_12 = data.frame(matrix(ncol=length(PC_52),nrow=52, dimnames=list(NULL, colnames(PC_52))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  PC_mean_12[i,1] = PC_52[i_1,1]
+  PC_mean_12[i,2:length(PC_52)] = colMeans(PC_52[c(i_1:(i_1+2)),-1])
+}
+
+# combine all classes' means ###########################################################
+sheets <- list("CE_mean" = CE_mean_12, 
+               "Cer_mean" = Cer_mean_12,
+               "DG_mean" = DG_mean_12,
+               "HexCer_mean" = HexCer_mean_12,
+               "PC_mean" = PC_mean_12,
+               "SM_mean" = SM_mean_12,
+               "TG_mean" = TG_mean_12) 
+write_xlsx(sheets, "/Users/xuleihe/Desktop/new_AD Clinical CSF Classes Summary_mean_12.xlsx")
+
+
+# PLASMA HexCer, 26 * 6, 21 ###########################################################
+HexCer_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "HexCer Class")
+
+HexCer_52_pla = HexCer_52_pla[
+  order( HexCer_52_pla[,1]),
+  ]
+
+b = HexCer_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           HexCer_52_pla[i,1])
+  b[i,1] = a
+}
+HexCer_52_pla[,1]=b
+
+
+HexCer_mean_12_pla = data.frame(matrix(ncol=length(HexCer_52_pla),nrow=52, dimnames=list(NULL, colnames(HexCer_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  HexCer_mean_12_pla[i,1] = HexCer_52_pla[i_1,1]
+  HexCer_mean_12_pla[i,2:length(HexCer_52_pla)] = colMeans(HexCer_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# Cer, 26 * 6, 12 ###########################################################
+Cer_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "Cer Class")
+Cer_52_pla = Cer_52_pla[
+  order( Cer_52_pla[,1]),
+  ]
+
+b = Cer_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           Cer_52_pla[i,1])
+  b[i,1] = a
+}
+Cer_52_pla[,1]=b
+
+Cer_mean_12_pla = data.frame(matrix(ncol=length(Cer_52_pla),nrow=52, dimnames=list(NULL, colnames(Cer_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  Cer_mean_12_pla[i,1] = Cer_52_pla[i_1,1]
+  Cer_mean_12_pla[i,2:length(Cer_52_pla)] = colMeans(Cer_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# SM, 26 * 6, 16 ###########################################################
+SM_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "SM Class")
+SM_52_pla = SM_52_pla[
+  order(SM_52_pla[,1]),
+  ]
+
+b = SM_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           SM_52_pla[i,1])
+  b[i,1] = a
+}
+SM_52_pla[,1]=b
+
+SM_mean_12_pla = data.frame(matrix(ncol=length(SM_52_pla),nrow=52, dimnames=list(NULL, colnames(SM_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  SM_mean_12_pla[i,1] = SM_52_pla[i_1,1]
+  SM_mean_12_pla[i,2:length(SM_52_pla)] = colMeans(SM_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# CE,26 * 6 , 11 ###########################################################
+CE_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "CE Class")
+CE_52_pla = CE_52_pla[
+  order(CE_52_pla[,1]),
+  ]
+
+b = CE_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           CE_52_pla[i,1])
+  b[i,1] = a
+}
+CE_52_pla[,1]=b
+
+CE_mean_12_pla = data.frame(matrix(ncol=length(CE_52_pla),nrow=52, dimnames=list(NULL, colnames(CE_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  CE_mean_12_pla[i,1] = CE_52_pla[i_1,1]
+  CE_mean_12_pla[i,2:length(CE_52_pla)] = colMeans(CE_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# DG, 26 * 6 , 51 ###########################################################
+DG_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "DG Class")
+DG_52_pla = DG_52_pla[
+  order(DG_52_pla[,1]),
+  ]
+
+b = DG_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           DG_52_pla[i,1])
+  b[i,1] = a
+}
+DG_52_pla[,1]=b
+
+DG_mean_12_pla = data.frame(matrix(ncol=length(DG_52_pla),nrow=52, dimnames=list(NULL, colnames(DG_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  DG_mean_12_pla[i,1] = DG_52_pla[i_1,1]
+  DG_mean_12_pla[i,2:length(DG_52_pla)] = colMeans(DG_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# TG, 26 * 6 , 19 ###########################################################
+TG_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "TG Class")
+TG_52_pla = TG_52_pla[
+  order(TG_52_pla[,1]),
+  ]
+
+b = TG_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           TG_52_pla[i,1])
+  b[i,1] = a
+}
+TG_52_pla[,1]=b
+
+TG_mean_12_pla = data.frame(matrix(ncol=length(TG_52_pla),nrow=52, dimnames=list(NULL, colnames(TG_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  TG_mean_12_pla[i,1] = TG_52_pla[i_1,1]
+  TG_mean_12_pla[i,2:length(TG_52_pla)] = colMeans(TG_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# PC, 26 * 6 , 32 ###########################################################
+PC_52_pla = read_excel("/Users/xuleihe/Desktop/use/Sol/data/new/Copy of AD Clinical Data - Normalized - All classes.xlsx", sheet = "PC Class")
+PC_52_pla = PC_52_pla[
+  order(PC_52_pla[,1]),
+  ]
+
+b = PC_52_pla[,1]
+for (i in 1:156) {
+  a = gsub("\\s[0-9]/[0-9]/[0-9][0-9]|\\s[0-9]/[0-9][0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9]/[0-9][0-9]|\\s[0-9][0-9]/[0-9][0-9]/[0-9][0-9]","",
+           PC_52_pla[i,1])
+  b[i,1] = a
+}
+PC_52_pla[,1]=b
+
+PC_mean_12_pla = data.frame(matrix(ncol=length(PC_52_pla),nrow=52, dimnames=list(NULL, colnames(PC_52_pla))))
+for (i in 1:52) {
+  i_1 = 1+3*(i-1)
+  PC_mean_12_pla[i,1] = PC_52_pla[i_1,1]
+  PC_mean_12_pla[i,2:length(PC_52_pla)] = colMeans(PC_52_pla[c(i_1:(i_1+2)),-1])
+}
+
+# combine all classes' means ###########################################################
+sheets <- list("CE_mean" = CE_mean_12_pla, 
+               "Cer_mean" = Cer_mean_12_pla,
+               "DG_mean" = DG_mean_12_pla,
+               "HexCer_mean" = HexCer_mean_12_pla,
+               "PC_mean" = PC_mean_12_pla,
+               "SM_mean" = SM_mean_12_pla,
+               "TG_mean" = TG_mean_12_pla) 
+write_xlsx(sheets, "/Users/xuleihe/Desktop/new_AD Clinical CSF Classes Summary_mean_12_pla.xlsx")
+
+
+# CE Outlier ##########################################################################
+CE_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "CE_mean")
+
+vals <- boxplot(data = subset(CE_12, CE_12$visit==2), main = "Visit 2", subset(CE_12, CE_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(CE_12, CE_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# Cer Outlier ##########################################################################
+Cer_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "Cer_mean")
+
+vals <- boxplot(data = subset(Cer_12, Cer_12$visit==2), main = "Visit 2", subset(Cer_12, Cer_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(Cer_12, Cer_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# DG Outlier ##########################################################################
+DG_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "DG_mean")
+
+vals <- boxplot(data = subset(DG_12, DG_12$visit==2), main = "Visit 2", subset(DG_12, DG_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(DG_12, DG_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# HexCer Outlier ##########################################################################
+HexCer_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "HexCer_mean")
+
+vals <- boxplot(data = subset(HexCer_12, HexCer_12$visit==2), main = "Visit 2", subset(HexCer_12, HexCer_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(HexCer_12, HexCer_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# PC Outlier ##########################################################################
+PC_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "PC_mean")
+
+
+vals <- boxplot(data = subset(PC_12, PC_12$visit==2), main = "Visit 2", subset(PC_12, PC_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(PC_12, PC_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# SM Outlier ##########################################################################
+SM_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "SM_mean")
+
+
+vals <- boxplot(data = subset(SM_12, SM_12$visit==2), main = "Visit 2", subset(SM_12, SM_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(SM_12, SM_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+# TG Outlier ##########################################################################
+TG_12 = read_excel("/Users/xuleihe/Desktop/AD Clinical CSF Classes Summary_mean_12.xlsx", sheet = "TG_mean")
+
+
+vals <- boxplot(data = subset(TG_12, TG_12$visit==2), main = "Visit 2", subset(TG_12, TG_12$visit==2)[,-c(1,2)],
+                col=rainbow(length(subset(TG_12, TG_12$visit==2))), 
+                # horizontal = TRUE, 
+                las = 2) 
+View(cbind(vals$out,vals$group))
+
+
+
+# calculate change
+# HexCer
+HexCer = read_excel("/Users/xuleihe/Desktop/WideFormat_MeansAfterCleaningByMissingDataandCV_ADClinicalCSFClasses.xlsx", sheet = "HexCer_mean")
+summary(HexCer)
+
+
+# description
+{
+  df_description = read_excel("/Users/xuleihe/Desktop/use/Sol/data/Merged__DHAPilotdata03042020__WideFormat_Mean_afterCV_AD Clinical Data_V1.xlsx",
+                              sheet = "all sig")
+  df_description = df_description[,c(1:4, 6:15)]
+  summary(df_description)
+  df_description$rand_tx = factor(df_description$rand_tx, 
+                             levels = c(0,1),
+                             labels = c("placebo", "DHA"))
+  df_description$apoe4 = factor(df_description$apoe4,
+                           levels = c(0,1),
+                           labels = c("E4 -", "E4 +"))
+  
+  df_description$gender = as.factor(df_description$gender)
+  df_description$race_hispanic = as.factor(df_description$race_hispanic)
+  
+}
+
+df_pla_group = read_xlsx("/Users/xuleihe/Desktop/plasma_grouped lipids.xlsx", sheet = "PLASMA_GROUP")
+df_pla_group$rand_tx = factor(df_pla_group$rand_tx, 
+                                levels = c(0,1),
+                                labels = c("placebo", "DHA"))
+df_pla_group$apoe4 = factor(df_pla_group$apoe4,
+                              levels = c(0,1),
+                              labels = c("E4 -", "E4 +"))
+summary(lm(df_pla_group$PC_SFA~df_pla_group$PC_SFA_A+df_pla_group$rand_tx))
+```
+
+
+```{r}
+############## new data #################################
+# calculate change in CSF (A is baseline and B is follow-up)
+{
+  df_ce = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "CE_mean")
+  ID = df_ce[,1]
+  df_ce = df_ce[,-c(1)]
+  df_ce_change = data.frame(matrix(ncol=length(df_ce),nrow=26, dimnames=list(NULL, colnames(df_ce))))
+  for (i in 1:26) {
+    df_ce_change[i,] = df_ce[2*i,]-df_ce[2*i-1,]
+  }
+  
+  df_cer = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "Cer_mean")
+  df_cer = df_cer[,-c(1)]
+  df_cer_change = data.frame(matrix(ncol=length(df_cer),nrow=26, dimnames=list(NULL, colnames(df_cer))))
+  for (i in 1:26) {
+    df_cer_change[i,] = df_cer[2*i,]-df_cer[2*i-1,]
+  }
+  
+  df_dg = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "DG_mean")
+  df_dg = df_dg[,-c(1)]
+  df_dg_change = data.frame(matrix(ncol=length(df_dg),nrow=26, dimnames=list(NULL, colnames(df_dg))))
+  for (i in 1:26) {
+    df_dg_change[i,] = df_dg[2*i,]-df_dg[2*i-1,]
+  }
+  
+  df_hexcer = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "HexCer_mean")
+  df_hexcer = df_hexcer[,-c(1)]
+  df_hexcer_change = data.frame(matrix(ncol=length(df_hexcer),nrow=26, dimnames=list(NULL, colnames(df_hexcer))))
+  for (i in 1:26) {
+    df_hexcer_change[i,] = df_hexcer[2*i,]-df_hexcer[2*i-1,]
+  }
+  
+  df_pc = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                         sheet = "PC_mean")
+  df_pc = df_pc[,-c(1)]
+  df_pc_change = data.frame(matrix(ncol=length(df_pc),nrow=26, dimnames=list(NULL, colnames(df_pc))))
+  for (i in 1:26) {
+    df_pc_change[i,] = df_pc[2*i,]-df_pc[2*i-1,]
+  }
+  
+  df_sm = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "SM_mean")
+  df_sm = df_sm[,-c(1)]
+  df_sm_change = data.frame(matrix(ncol=length(df_sm),nrow=26, dimnames=list(NULL, colnames(df_sm))))
+  for (i in 1:26) {
+    df_sm_change[i,] = df_sm[2*i,]-df_sm[2*i-1,]
+  }
+  
+  df_tg = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "TG_mean")
+  df_tg = df_tg[,-c(1)]
+  df_tg_change = data.frame(matrix(ncol=length(df_tg),nrow=26, dimnames=list(NULL, colnames(df_tg))))
+  for (i in 1:26) {
+    df_tg_change[i,] = df_tg[2*i,]-df_tg[2*i-1,]
+  }
+  
+  sheets_change <- list("CE" = df_ce_change, 
+                 "Cer" = df_cer_change,
+                 "DG" = df_dg_change,
+                 "HexCer" = df_hexcer_change,
+                 "PC" = df_pc_change,
+                 "SM" = df_sm_change,
+                 "TG" = df_tg_change) 
+  write_xlsx(sheets_change, "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx")
+  
+}
+
+# calculate change in plasma
+{
+  df_ce_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "CE_mean_pla")
+  df_ce_pla = df_ce_pla[,-c(1)]
+  df_ce_change_pla = data.frame(matrix(ncol=length(df_ce_pla),nrow=26, dimnames=list(NULL, colnames(df_ce_pla))))
+  for (i in 1:26) {
+    df_ce_change_pla[i,] = df_ce_pla[2*i,]-df_ce_pla[2*i-1,]
+  }
+  
+  df_cer_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                      sheet = "Cer_mean_pla")
+  df_cer_pla = df_cer_pla[,-c(1)]
+  df_cer_change_pla = data.frame(matrix(ncol=length(df_cer_pla),nrow=26, dimnames=list(NULL, colnames(df_cer_pla))))
+  for (i in 1:26) {
+    df_cer_change_pla[i,] = df_cer_pla[2*i,]-df_cer_pla[2*i-1,]
+  }
+  
+  df_dg_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "DG_mean_pla")
+  df_dg_pla = df_dg_pla[,-c(1)]
+  df_dg_change_pla = data.frame(matrix(ncol=length(df_dg_pla),nrow=26, dimnames=list(NULL, colnames(df_dg_pla))))
+  for (i in 1:26) {
+    df_dg_change_pla[i,] = df_dg_pla[2*i,]-df_dg_pla[2*i-1,]
+  }
+  
+  df_hexcer_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                         sheet = "HexCer_mean_pla")
+  df_hexcer_pla = df_hexcer_pla[,-c(1)]
+  df_hexcer_change_pla = data.frame(matrix(ncol=length(df_hexcer_pla),nrow=26, dimnames=list(NULL, colnames(df_hexcer_pla))))
+  for (i in 1:26) {
+    df_hexcer_change_pla[i,] = df_hexcer_pla[2*i,]-df_hexcer_pla[2*i-1,]
+  }
+  
+  df_pc_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "PC_mean_pla")
+  df_pc_pla = df_pc_pla[,-c(1)]
+  df_pc_change_pla = data.frame(matrix(ncol=length(df_pc_pla),nrow=26, dimnames=list(NULL, colnames(df_pc_pla))))
+  for (i in 1:26) {
+    df_pc_change_pla[i,] = df_pc_pla[2*i,]-df_pc_pla[2*i-1,]
+  }
+  
+  df_sm_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "SM_mean_pla")
+  df_sm_pla = df_sm_pla[,-c(1)]
+  df_sm_change_pla = data.frame(matrix(ncol=length(df_sm_pla),nrow=26, dimnames=list(NULL, colnames(df_sm_pla))))
+  for (i in 1:26) {
+    df_sm_change_pla[i,] = df_sm_pla[2*i,]-df_sm_pla[2*i-1,]
+  }
+  
+  df_tg_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                     sheet = "TG_mean_pla")
+  df_tg_pla = df_tg_pla[,-c(1)]
+  df_tg_change_pla = data.frame(matrix(ncol=length(df_tg_pla),nrow=26, dimnames=list(NULL, colnames(df_tg_pla))))
+  for (i in 1:26) {
+    df_tg_change_pla[i,] = df_tg_pla[2*i,]-df_tg_pla[2*i-1,]
+  }
+  
+  sheets_change_pla <- list("CE" = df_ce_change_pla, 
+                        "Cer" = df_cer_change_pla,
+                        "DG" = df_dg_change_pla,
+                        "HexCer" = df_hexcer_change_pla,
+                        "PC" = df_pc_change_pla,
+                        "SM" = df_sm_change_pla,
+                        "TG" = df_tg_change_pla) 
+  write_xlsx(sheets_change_pla, "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx")
+  
+}
+
+# correlation plots
+{
+  df_ce_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "CE")
+  df_ce_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "CE")
+  ce_cor = cor(df_ce_change[-c(4,12,22,23),], df_ce_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(ce_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CE_cor.xlsx")
+  df_ce_change = df_ce_change[,c(14,
+                                17,
+                                10,
+                                16,
+                                15,
+                                2,
+                                5,
+                                12,
+                                11,
+                                3,
+                                4,
+                                9,
+                                13,
+                                7,
+                                1,
+                                8,
+                                6)]
+  df_ce_change_pla = df_ce_change_pla[,c(14,
+                                17,
+                                10,
+                                16,
+                                15,
+                                2,
+                                5,
+                                12,
+                                11,
+                                3,
+                                4,
+                                9,
+                                13,
+                                7,
+                                1,
+                                8,
+                                6)]
+  
+  # 4,12,22,23 rows are NA in plasma
+  corrplot::corrplot(cor(df_ce_change[-c(4,12,22,23),], df_ce_change_pla[-c(4,12,22,23),]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  df_cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "Cer")
+  df_cer_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "Cer")
+  cer_cor = cor(df_cer_change[-c(4,12,22,23),], df_cer_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(cer_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Cer_cor.xlsx")
+  df_cer_change = df_cer_change[, c(5,
+                                    6,
+                                    4,
+                                    3,
+                                    2,
+                                    1)]
+  df_cer_change_pla = df_cer_change_pla[, c(5,
+                                    6,
+                                    4,
+                                    3,
+                                    2,
+                                    1)]
+  
+  corrplot::corrplot(cor(df_cer_change[-c(4,12,22,23),], df_cer_change_pla[-c(4,12,22,23),]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  
+  df_dg_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "DG")
+  df_dg_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "DG")
+  dg_cor = cor(df_dg_change[-c(4,12,22,23),], df_dg_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(dg_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/DG_cor.xlsx")
+  df_dg_change = df_dg_change[,c(9,
+                                 7,
+                                 1,
+                                 3,
+                                 4,
+                                 6,
+                                 2,
+                                 8,
+                                 10,
+                                 5)]
+  df_dg_change_pla = df_dg_change_pla[,c(9,
+                                 7,
+                                 1,
+                                 3,
+                                 4,
+                                 6,
+                                 2,
+                                 8,
+                                 10,
+                                 5)]
+  
+  corrplot::corrplot(cor(df_dg_change[-c(4,12,22,23),], df_dg_change_pla[-c(4,12,22,23), ]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  
+  df_hexcer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "HexCer")
+  df_hexcer_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "HexCer")
+  hexcer_cor = cor(df_hexcer_change[-c(4,12,22,23),], df_hexcer_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(hexcer_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/HexCer_cor.xlsx")
+  df_hexcer_change = df_hexcer_change[,c(3,
+                                         5,
+                                         1,
+                                         4,
+                                         2,
+                                         6)]
+  df_hexcer_change_pla = df_hexcer_change_pla[,c(3,
+                                         5,
+                                         1,
+                                         4,
+                                         2,
+                                         6)]
+  
+  corrplot::corrplot(cor(df_hexcer_change[-c(4,12,22,23),], df_hexcer_change_pla[-c(4,12,22,23), ]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  
+  df_pc_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "PC")
+  df_pc_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "PC")
+  pc_cor = cor(df_pc_change[-c(4,12,22,23),], df_pc_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(pc_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/PC_cor.xlsx")
+  df_pc_change = df_pc_change[,c(27,
+                                 21,
+                                 16,
+                                 15,
+                                 29,
+                                 22,
+                                 18,
+                                 20,
+                                 28,
+                                 9,
+                                 1,
+                                 5,
+                                 10,
+                                 14,
+                                 26,
+                                 25,
+                                 19,
+                                 11,
+                                 2,
+                                 13,
+                                 36,
+                                 38,
+                                 34,
+                                 12,
+                                 3,
+                                 8,
+                                 37,
+                                 24,
+                                 4,
+                                 7,
+                                 33,
+                                 6,
+                                 32,
+                                 35,
+                                 31,
+                                 17,
+                                 23,
+                                 30)]
+  df_pc_change_pla = df_pc_change_pla[,c(27,
+                                 21,
+                                 16,
+                                 15,
+                                 29,
+                                 22,
+                                 18,
+                                 20,
+                                 28,
+                                 9,
+                                 1,
+                                 5,
+                                 10,
+                                 14,
+                                 26,
+                                 25,
+                                 19,
+                                 11,
+                                 2,
+                                 13,
+                                 36,
+                                 38,
+                                 34,
+                                 12,
+                                 3,
+                                 8,
+                                 37,
+                                 24,
+                                 4,
+                                 7,
+                                 33,
+                                 6,
+                                 32,
+                                 35,
+                                 31,
+                                 17,
+                                 23,
+                                 30)]
+  corrplot::corrplot(cor(df_pc_change[-c(4,12,22,23),], df_pc_change_pla[-c(4,12,22,23), ]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  
+  df_sm_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "SM")
+  df_sm_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "SM")
+  sm_cor = cor(df_sm_change[-c(4,12,22,23),], df_sm_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(sm_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/SM_cor.xlsx")
+  df_sm_change = df_sm_change[,c(2,
+                                 16,
+                                 12,
+                                 5,
+                                 9,
+                                 4,
+                                 17,
+                                 6,
+                                 1,
+                                 14,
+                                 8,
+                                 3,
+                                 7,
+                                 10,
+                                 13,
+                                 11,
+                                 18,
+                                 15)]
+  df_sm_change_pla = df_sm_change_pla[,c(2,
+                                 16,
+                                 12,
+                                 5,
+                                 9,
+                                 4,
+                                 17,
+                                 6,
+                                 1,
+                                 14,
+                                 8,
+                                 3,
+                                 7,
+                                 10,
+                                 13,
+                                 11,
+                                 18,
+                                 15)]
+  corrplot::corrplot(cor(df_sm_change[-c(4,12,22,23),], df_sm_change_pla[-c(4,12,22,23), ]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  df_tg_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet = "TG")
+  df_tg_change_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet = "TG")
+  tg_cor = cor(df_tg_change[-c(4,12,22,23),], df_tg_change_pla[-c(4,12,22,23),])
+  write_xlsx(as.data.frame(tg_cor), "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/TG_cor.xlsx")
+  df_tg_change = df_tg_change[,c(30,
+                                 29,
+                                 31,
+                                 3,
+                                 26,
+                                 25,
+                                 19,
+                                 21,
+                                 22,
+                                 6,
+                                 10,
+                                 15,
+                                 20,
+                                 18,
+                                 14,
+                                 9,
+                                 24,
+                                 16,
+                                 1,
+                                 11,
+                                 23,
+                                 27,
+                                 8,
+                                 5,
+                                 2,
+                                 4,
+                                 28,
+                                 17,
+                                 7,
+                                 13,
+                                 12)]
+  df_tg_change_pla = df_tg_change_pla[,c(30,
+                                 29,
+                                 31,
+                                 3,
+                                 26,
+                                 25,
+                                 19,
+                                 21,
+                                 22,
+                                 6,
+                                 10,
+                                 15,
+                                 20,
+                                 18,
+                                 14,
+                                 9,
+                                 24,
+                                 16,
+                                 1,
+                                 11,
+                                 23,
+                                 27,
+                                 8,
+                                 5,
+                                 2,
+                                 4,
+                                 28,
+                                 17,
+                                 7,
+                                 13,
+                                 12)]
+  corrplot::corrplot(cor(df_tg_change[-c(4,12,22,23),], df_tg_change_pla[-c(4,12,22,23), ]), method="color", use="complete.obs",
+                     addgrid.col = "grey",
+                     addCoef.col = "black", # Add coefficient of correlation
+                     number.cex=0.5,
+                     tl.col="black",
+                     tl.cex = 0.5
+                     # tl.srt=45, #Text label color and rotation
+                     # Combine with significance
+                     # p.mat = p.mat, sig.level = 0.05
+                     # insig = "blank"
+                     # hide correlation coefficient on the principal diagonal
+                     # diag=FALSE 
+  )
+  
+}
+
+# prepare baseline and change to do linear regression
+{
+  # df_clinic stores the old lipids data, we want to use the clinical variables not the lipids in it.
+  df_clinic = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Merged__DHAPilotdata03042020__WideFormat_Mean_afterCV_AD Clinical Data_V1.xlsx")
+  ft_apoe4 = factor(df_clinic$apoe4, 
+                    levels = c(0,1),
+                    labels = c("E4-","E4+"))
+   
+  ft_treatment = factor(df_clinic$rand_tx,
+                        levels = c(0,1),
+                        labels = c("Placebo","DHA"))
+  
+  even_row = toDelete <- seq(0, 52, 2)
+  
+  # TG in pla
+  {
+    df_tg_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "TG_mean_pla")
+    df_tg_baseline_pla = df_tg_pla[-even_row, ]
+    df_tg_baseline_pla = df_tg_baseline_pla[,-1]
+    colnames(df_tg_change_pla)==colnames(df_tg_baseline_pla)
+    results_tg_pla=data.frame("lipidname"= colnames(df_tg_change_pla),
+                              "treatment_pval"= rep(NA,length(df_tg_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_tg_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_tg_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_tg_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_tg_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_tg_change_pla)))
+  
+    i=1 #counter for each lipid
+    for (lipid in df_tg_change_pla[1:length(df_tg_change_pla)]) {
+      df=data.frame(
+                    df_tg_change_pla[,i],
+                    df_tg_baseline_pla[,i],
+                    ft_treatment,
+                    apoe4=ft_apoe4
+                    )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+    
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_tg_pla$treatment_pval[i] <- treatment_pval
+      results_tg_pla$treatment_beta[i] <- treatment_beta
+      results_tg_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_tg_pla$apoe4_pval[i] <- apoe4_pval
+      results_tg_pla$apoe4_beta[i] <- apoe4_beta
+      results_tg_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # TG in CSF
+  {
+    df_tg_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "TG_mean")
+    df_tg_baseline_csf = df_tg_csf[-even_row, ]
+    df_tg_baseline_csf = df_tg_baseline_csf[,-1]
+    colnames(df_tg_change)==colnames(df_tg_baseline_csf)
+    
+    results_tg_csf=data.frame("lipidname"= colnames(df_tg_change),
+                              "treatment_pval"= rep(NA,length(df_tg_change)),
+                              "treatment_beta"= rep(NA,length(df_tg_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_tg_change)),
+                              "apoe4_pval"= rep(NA,length(df_tg_change)),
+                              "apoe4_beta"= rep(NA,length(df_tg_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_tg_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_tg_change[1:length(df_tg_change)]) {
+      df=data.frame(
+        df_tg_change[,i],
+        df_tg_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_tg_csf$treatment_pval[i] <- treatment_pval
+      results_tg_csf$treatment_beta[i] <- treatment_beta
+      results_tg_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_tg_csf$apoe4_pval[i] <- apoe4_pval
+      results_tg_csf$apoe4_beta[i] <- apoe4_beta
+      results_tg_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # SM in pla
+  {
+    df_sm_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "SM_mean_pla")
+    df_sm_baseline_pla = df_sm_pla[-even_row, ]
+    df_sm_baseline_pla = df_sm_baseline_pla[,-1]
+    colnames(df_sm_change_pla)==colnames(df_sm_baseline_pla)
+    
+    results_sm_pla=data.frame("lipidname"= colnames(df_sm_change_pla),
+                              "treatment_pval"= rep(NA,length(df_sm_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_sm_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_sm_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_sm_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_sm_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_sm_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_sm_change_pla[1:length(df_sm_change_pla)]) {
+      df=data.frame(
+        df_sm_change_pla[,i],
+        df_sm_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_sm_pla$treatment_pval[i] <- treatment_pval
+      results_sm_pla$treatment_beta[i] <- treatment_beta
+      results_sm_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_sm_pla$apoe4_pval[i] <- apoe4_pval
+      results_sm_pla$apoe4_beta[i] <- apoe4_beta
+      results_sm_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # SM in CSF
+  {
+    df_sm_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "SM_mean")
+    df_sm_baseline_csf = df_sm_csf[-even_row, ]
+    df_sm_baseline_csf = df_sm_baseline_csf[,-1]
+    colnames(df_sm_change)==colnames(df_sm_baseline_csf)
+    
+    results_sm_csf=data.frame("lipidname"= colnames(df_sm_change),
+                              "treatment_pval"= rep(NA,length(df_sm_change)),
+                              "treatment_beta"= rep(NA,length(df_sm_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_sm_change)),
+                              "apoe4_pval"= rep(NA,length(df_sm_change)),
+                              "apoe4_beta"= rep(NA,length(df_sm_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_sm_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_sm_change[1:length(df_sm_change)]) {
+      df=data.frame(
+        df_sm_change[,i],
+        df_sm_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_sm_csf$treatment_pval[i] <- treatment_pval
+      results_sm_csf$treatment_beta[i] <- treatment_beta
+      results_sm_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_sm_csf$apoe4_pval[i] <- apoe4_pval
+      results_sm_csf$apoe4_beta[i] <- apoe4_beta
+      results_sm_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # PC in pla
+  {
+    df_pc_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "PC_mean_pla")
+    df_pc_baseline_pla = df_pc_pla[-even_row, ]
+    df_pc_baseline_pla = df_pc_baseline_pla[,-1]
+    colnames(df_pc_change_pla)==colnames(df_pc_baseline_pla)
+    
+    results_pc_pla=data.frame("lipidname"= colnames(df_pc_change_pla),
+                              "treatment_pval"= rep(NA,length(df_pc_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_pc_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_pc_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_pc_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_pc_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_pc_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_pc_change_pla[1:length(df_pc_change_pla)]) {
+      df=data.frame(
+        df_pc_change_pla[,i],
+        df_pc_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_pc_pla$treatment_pval[i] <- treatment_pval
+      results_pc_pla$treatment_beta[i] <- treatment_beta
+      results_pc_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_pc_pla$apoe4_pval[i] <- apoe4_pval
+      results_pc_pla$apoe4_beta[i] <- apoe4_beta
+      results_pc_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # PC in CSF
+  {
+    df_pc_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "PC_mean")
+    df_pc_baseline_csf = df_pc_csf[-even_row, ]
+    df_pc_baseline_csf = df_pc_baseline_csf[,-1]
+    colnames(df_pc_change)==colnames(df_pc_baseline_csf)
+    
+    results_pc_csf=data.frame("lipidname"= colnames(df_pc_change),
+                              "treatment_pval"= rep(NA,length(df_pc_change)),
+                              "treatment_beta"= rep(NA,length(df_pc_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_pc_change)),
+                              "apoe4_pval"= rep(NA,length(df_pc_change)),
+                              "apoe4_beta"= rep(NA,length(df_pc_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_pc_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_pc_change[1:length(df_pc_change)]) {
+      df=data.frame(
+        df_pc_change[,i],
+        df_pc_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_pc_csf$treatment_pval[i] <- treatment_pval
+      results_pc_csf$treatment_beta[i] <- treatment_beta
+      results_pc_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_pc_csf$apoe4_pval[i] <- apoe4_pval
+      results_pc_csf$apoe4_beta[i] <- apoe4_beta
+      results_pc_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # HexCer in pla
+  {
+    df_hexcer_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "HexCer_mean_pla")
+    df_hexcer_baseline_pla = df_hexcer_pla[-even_row, ]
+    df_hexcer_baseline_pla = df_hexcer_baseline_pla[,-1]
+    colnames(df_hexcer_change_pla)==colnames(df_hexcer_baseline_pla)
+    
+    results_hexcer_pla=data.frame("lipidname"= colnames(df_hexcer_change_pla),
+                              "treatment_pval"= rep(NA,length(df_hexcer_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_hexcer_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_hexcer_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_hexcer_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_hexcer_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_hexcer_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_hexcer_change_pla[1:length(df_hexcer_change_pla)]) {
+      df=data.frame(
+        df_hexcer_change_pla[,i],
+        df_hexcer_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_hexcer_pla$treatment_pval[i] <- treatment_pval
+      results_hexcer_pla$treatment_beta[i] <- treatment_beta
+      results_hexcer_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_hexcer_pla$apoe4_pval[i] <- apoe4_pval
+      results_hexcer_pla$apoe4_beta[i] <- apoe4_beta
+      results_hexcer_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # HexCer in CSF
+  {
+    df_hexcer_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "HexCer_mean")
+    df_hexcer_baseline_csf = df_hexcer_csf[-even_row, ]
+    df_hexcer_baseline_csf = df_hexcer_baseline_csf[,-1]
+    colnames(df_hexcer_change)==colnames(df_hexcer_baseline_csf)
+    
+    results_hexcer_csf=data.frame("lipidname"= colnames(df_hexcer_change),
+                              "treatment_pval"= rep(NA,length(df_hexcer_change)),
+                              "treatment_beta"= rep(NA,length(df_hexcer_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_hexcer_change)),
+                              "apoe4_pval"= rep(NA,length(df_hexcer_change)),
+                              "apoe4_beta"= rep(NA,length(df_hexcer_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_hexcer_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_hexcer_change[1:length(df_hexcer_change)]) {
+      df=data.frame(
+        df_hexcer_change[,i],
+        df_hexcer_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_hexcer_csf$treatment_pval[i] <- treatment_pval
+      results_hexcer_csf$treatment_beta[i] <- treatment_beta
+      results_hexcer_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_hexcer_csf$apoe4_pval[i] <- apoe4_pval
+      results_hexcer_csf$apoe4_beta[i] <- apoe4_beta
+      results_hexcer_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # DG in pla
+  {
+    df_dg_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "DG_mean_pla")
+    df_dg_baseline_pla = df_dg_pla[-even_row, ]
+    df_dg_baseline_pla = df_dg_baseline_pla[,-1]
+    colnames(df_dg_change_pla)==colnames(df_dg_baseline_pla)
+    
+    results_dg_pla=data.frame("lipidname"= colnames(df_dg_change_pla),
+                              "treatment_pval"= rep(NA,length(df_dg_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_dg_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_dg_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_dg_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_dg_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_dg_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_dg_change_pla[1:length(df_dg_change_pla)]) {
+      df=data.frame(
+        df_dg_change_pla[,i],
+        df_dg_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_dg_pla$treatment_pval[i] <- treatment_pval
+      results_dg_pla$treatment_beta[i] <- treatment_beta
+      results_dg_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_dg_pla$apoe4_pval[i] <- apoe4_pval
+      results_dg_pla$apoe4_beta[i] <- apoe4_beta
+      results_dg_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # DG in CSF
+  {
+    df_dg_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "DG_mean")
+    df_dg_baseline_csf = df_dg_csf[-even_row, ]
+    df_dg_baseline_csf = df_dg_baseline_csf[,-1]
+    colnames(df_dg_change)==colnames(df_dg_baseline_csf)
+    
+    results_dg_csf=data.frame("lipidname"= colnames(df_dg_change),
+                              "treatment_pval"= rep(NA,length(df_dg_change)),
+                              "treatment_beta"= rep(NA,length(df_dg_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_dg_change)),
+                              "apoe4_pval"= rep(NA,length(df_dg_change)),
+                              "apoe4_beta"= rep(NA,length(df_dg_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_dg_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_dg_change[1:length(df_dg_change)]) {
+      df=data.frame(
+        df_dg_change[,i],
+        df_dg_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_dg_csf$treatment_pval[i] <- treatment_pval
+      results_dg_csf$treatment_beta[i] <- treatment_beta
+      results_dg_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_dg_csf$apoe4_pval[i] <- apoe4_pval
+      results_dg_csf$apoe4_beta[i] <- apoe4_beta
+      results_dg_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # Cer in pla
+  {
+    df_cer_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "Cer_mean_pla")
+    df_cer_baseline_pla = df_cer_pla[-even_row, ]
+    df_cer_baseline_pla = df_cer_baseline_pla[,-1]
+    colnames(df_cer_change_pla)==colnames(df_cer_baseline_pla)
+    
+    results_cer_pla=data.frame("lipidname"= colnames(df_cer_change_pla),
+                                  "treatment_pval"= rep(NA,length(df_cer_change_pla)),
+                                  "treatment_beta"= rep(NA,length(df_cer_change_pla)),
+                                  "Sig_pval_treatment"=rep(NA,length(df_cer_change_pla)),
+                                  "apoe4_pval"= rep(NA,length(df_cer_change_pla)),
+                                  "apoe4_beta"= rep(NA,length(df_cer_change_pla)),
+                                  "Sig_pval_apoe4"=rep(NA,length(df_cer_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_cer_change_pla[1:length(df_cer_change_pla)]) {
+      df=data.frame(
+        df_cer_change_pla[,i],
+        df_cer_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_cer_pla$treatment_pval[i] <- treatment_pval
+      results_cer_pla$treatment_beta[i] <- treatment_beta
+      results_cer_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_cer_pla$apoe4_pval[i] <- apoe4_pval
+      results_cer_pla$apoe4_beta[i] <- apoe4_beta
+      results_cer_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # Cer in CSF
+  {
+    df_cer_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "Cer_mean")
+    df_cer_baseline_csf = df_cer_csf[-even_row, ]
+    df_cer_baseline_csf = df_cer_baseline_csf[,-1]
+    colnames(df_cer_change)==colnames(df_cer_baseline_csf)
+    
+    results_cer_csf=data.frame("lipidname"= colnames(df_cer_change),
+                                  "treatment_pval"= rep(NA,length(df_cer_change)),
+                                  "treatment_beta"= rep(NA,length(df_cer_change)),
+                                  "Sig_pval_treatment"=rep(NA,length(df_cer_change)),
+                                  "apoe4_pval"= rep(NA,length(df_cer_change)),
+                                  "apoe4_beta"= rep(NA,length(df_cer_change)),
+                                  "Sig_pval_apoe4"=rep(NA,length(df_cer_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_cer_change[1:length(df_cer_change)]) {
+      df=data.frame(
+        df_cer_change[,i],
+        df_cer_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_cer_csf$treatment_pval[i] <- treatment_pval
+      results_cer_csf$treatment_beta[i] <- treatment_beta
+      results_cer_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_cer_csf$apoe4_pval[i] <- apoe4_pval
+      results_cer_csf$apoe4_beta[i] <- apoe4_beta
+      results_cer_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # CE in pla
+  {
+    df_ce_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "CE_mean_pla")
+    df_ce_baseline_pla = df_ce_pla[-even_row, ]
+    df_ce_baseline_pla = df_ce_baseline_pla[,-1]
+    colnames(df_ce_change_pla)==colnames(df_ce_baseline_pla)
+    
+    results_ce_pla=data.frame("lipidname"= colnames(df_ce_change_pla),
+                              "treatment_pval"= rep(NA,length(df_ce_change_pla)),
+                              "treatment_beta"= rep(NA,length(df_ce_change_pla)),
+                              "Sig_pval_treatment"=rep(NA,length(df_ce_change_pla)),
+                              "apoe4_pval"= rep(NA,length(df_ce_change_pla)),
+                              "apoe4_beta"= rep(NA,length(df_ce_change_pla)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_ce_change_pla)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_ce_change_pla[1:length(df_ce_change_pla)]) {
+      df=data.frame(
+        df_ce_change_pla[,i],
+        df_ce_baseline_pla[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_ce_pla$treatment_pval[i] <- treatment_pval
+      results_ce_pla$treatment_beta[i] <- treatment_beta
+      results_ce_pla$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_ce_pla$apoe4_pval[i] <- apoe4_pval
+      results_ce_pla$apoe4_beta[i] <- apoe4_beta
+      results_ce_pla$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  # CE in CSF
+  {
+    df_ce_csf = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",sheet = "CE_mean")
+    df_ce_baseline_csf = df_ce_csf[-even_row, ]
+    df_ce_baseline_csf = df_ce_baseline_csf[,-1]
+    colnames(df_ce_change)==colnames(df_ce_baseline_csf)
+    
+    results_ce_csf=data.frame("lipidname"= colnames(df_ce_change),
+                              "treatment_pval"= rep(NA,length(df_ce_change)),
+                              "treatment_beta"= rep(NA,length(df_ce_change)),
+                              "Sig_pval_treatment"=rep(NA,length(df_ce_change)),
+                              "apoe4_pval"= rep(NA,length(df_ce_change)),
+                              "apoe4_beta"= rep(NA,length(df_ce_change)),
+                              "Sig_pval_apoe4"=rep(NA,length(df_ce_change)))
+    
+    i=1 #counter for each lipid
+    for (lipid in df_ce_change[1:length(df_ce_change)]) {
+      df=data.frame(
+        df_ce_change[,i],
+        df_ce_baseline_csf[,i],
+        ft_treatment,
+        apoe4=ft_apoe4
+      )
+      colnames(df) = c("change", "baseline", "treatment", "apoe4")
+      
+      regression1.lm=lm(change~baseline+treatment, df)
+      regression1.res=summary(regression1.lm)
+      treatment_pval=regression1.res$coefficients[3,4]  
+      treatment_beta=regression1.res$coefficients[3,"Estimate"]
+      
+      regression2.lm=lm(change~baseline+apoe4, df)
+      regression2.res=summary(regression2.lm)
+      apoe4_pval=regression2.res$coefficients[3,4]  
+      apoe4_beta=regression2.res$coefficients[3,"Estimate"]
+      
+      
+      results_ce_csf$treatment_pval[i] <- treatment_pval
+      results_ce_csf$treatment_beta[i] <- treatment_beta
+      results_ce_csf$Sig_pval_treatment[i] <- ifelse(treatment_pval<0.05, "p < 0.05", "Not Sig")
+      results_ce_csf$apoe4_pval[i] <- apoe4_pval
+      results_ce_csf$apoe4_beta[i] <- apoe4_beta
+      results_ce_csf$Sig_pval_apoe4[i] <- ifelse(apoe4_pval<0.05, "p < 0.05", "Not Sig")
+      i=i+1
+    }
+  }  
+  
+  sheets_results_pla <- list("CE" = results_ce_pla, 
+                             "Cer" = results_cer_pla,
+                             "DG" = results_dg_pla,
+                             "HexCer" = results_hexcer_pla,
+                             "PC" = results_pc_pla,
+                             "SM" = results_sm_pla,
+                             "TG" = results_tg_pla) 
+  write_xlsx(sheets_results_pla, "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_results.xlsx")
+  
+  sheets_results_csf <- list("CE" = results_ce_csf, 
+                             "Cer" = results_cer_csf,
+                             "DG" = results_dg_csf,
+                             "HexCer" = results_hexcer_csf,
+                             "PC" = results_pc_csf,
+                             "SM" = results_sm_csf,
+                             "TG" = results_tg_csf) 
+  write_xlsx(sheets_results_csf, "/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_results.xlsx")
+  
+}
+```
+
+
+```{r}
+# heatmap
+{
+  library(ComplexHeatmap)
+  # treatment in CSF, original version
+  hm_csf_t = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Laila_lm.xlsx", sheet = "treatment in CSF")
+  star = NA
+  hm_csf_t = cbind(hm_csf_t, star)
+  hm_csf_t$star[hm_csf_t$pval<0.05]="*"
+  hm_csf_t$star[hm_csf_t$pval<0.001]="**"
+  hm_csf_t$star[hm_csf_t$pval<0.0001]="***"
+  ggplot(data = hm_csf_t, mapping = aes(x = term,
+                                                y = reorder(lipidname, beta, median, order=TRUE),
+                                                fill = beta)) +
+    geom_tile(aes(fill = beta), colour = "black") +
+    xlab(label = "Treatment Effect") +
+    ylab(label = "Lipids in CSF") +
+    scale_fill_gradient2('beta', low = "black", mid = "white", high = "red4", midpoint = 0, limits=c(-2.5,1.5), breaks=seq(-2.5,1.5,by=40)) +
+    geom_text(aes(term, lipidname, label = star), color = "black", size = 3)
+
+  # treatment in CSF, original version, drawn in pdf
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_treat_heatmap.pdf", width = 5, height = 5)
+  hm_csf_t = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in CSF")
+  star = NA
+  hm_csf_t = cbind(hm_csf_t, star)
+  hm_csf_t$star[hm_csf_t$pval<0.05]="*"
+  hm_csf_t$star[hm_csf_t$pval<0.001]="**"
+  hm_csf_t$star[hm_csf_t$pval<0.0001]="***"
+  ggplot(data = hm_csf_t, mapping = aes(x = term,
+                                        y = reorder(lipidname, beta, median, order=TRUE),
+                                        fill = beta)) +
+    geom_tile(aes(fill = beta), colour = "black") +
+    xlab(label = "Treatment Effect") +
+    ylab(label = "Lipids in CSF") +
+    scale_fill_gradient2('beta', low = "black", mid = "white", high = "red4", midpoint = 0, limits=c(-2.5,1.5), breaks=seq(-2.5,1.5,by=40)) +
+    geom_text(aes(term, lipidname, label = star), color = "black", size = 3)
+  dev.off()
+```
+
+
+```{r}
+# Treatment in CSF heatmap but filled with ratio of mean change in DHA group/ mean change in Placebo group
+  # Need to calculate the ratios, make empty data frame to store values
+  csf_ratios = data.frame()
+
+  # First, calculate ratio for CSF CE between treated and untreated groups
+  csf_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="CE")
+  csf_CE_treated = csf_CE_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_CE_treated_mean = colMeans(csf_CE_treated)
+  csf_CE_placebo = csf_CE_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_CE_placebo_mean = colMeans(csf_CE_placebo)
+  csf_CE_ratio = csf_CE_treated_mean/csf_CE_placebo_mean
+  csf_ratios = append(csf_ratios, csf_CE_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF Cer
+  csf_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="Cer")
+  csf_Cer_treated = csf_Cer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_Cer_treated_mean = colMeans(csf_Cer_treated)
+  csf_Cer_placebo = csf_Cer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_Cer_placebo_mean = colMeans(csf_Cer_placebo)
+  csf_Cer_ratio = csf_Cer_treated_mean/csf_Cer_placebo_mean
+  csf_ratios = append(csf_ratios, csf_Cer_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF DG
+  csf_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="DG")
+  csf_DG_treated = csf_DG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_DG_treated_mean = colMeans(csf_DG_treated)
+  csf_DG_placebo = csf_DG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_DG_placebo_mean = colMeans(csf_DG_placebo)
+  csf_DG_ratio = csf_DG_treated_mean/csf_DG_placebo_mean
+  csf_ratios = append(csf_ratios, csf_DG_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF HexCer
+  csf_HexCer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="HexCer")
+  csf_HexCer_treated = csf_HexCer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_HexCer_treated_mean = colMeans(csf_HexCer_treated)
+  csf_HexCer_placebo = csf_HexCer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_HexCer_placebo_mean = colMeans(csf_HexCer_placebo)
+  csf_HexCer_ratio = csf_HexCer_treated_mean/csf_HexCer_placebo_mean
+  csf_ratios = append(csf_ratios, csf_HexCer_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF PC
+  csf_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="PC")
+  csf_PC_treated = csf_PC_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_PC_treated_mean = colMeans(csf_PC_treated)
+  csf_PC_placebo = csf_PC_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_PC_placebo_mean = colMeans(csf_PC_placebo)
+  csf_PC_ratio = csf_PC_treated_mean/csf_PC_placebo_mean
+  csf_ratios = append(csf_ratios, csf_PC_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF SM
+  csf_SM_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="SM")
+  csf_SM_treated = csf_SM_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_SM_treated_mean = colMeans(csf_SM_treated)
+  csf_SM_placebo = csf_SM_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_SM_placebo_mean = colMeans(csf_SM_placebo)
+  csf_SM_ratio = csf_SM_treated_mean/csf_SM_placebo_mean
+  csf_ratios = append(csf_ratios, csf_SM_ratio)
+  View(csf_ratios)
+  
+  # now calculate ratio for CSF TG
+  csf_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="TG")
+  csf_TG_treated = csf_TG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_TG_treated_mean = colMeans(csf_TG_treated)
+  csf_TG_placebo = csf_TG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_TG_placebo_mean = colMeans(csf_TG_placebo)
+  csf_TG_ratio = csf_TG_treated_mean/csf_TG_placebo_mean
+  csf_ratios = append(csf_ratios, csf_TG_ratio)
+  View(csf_ratios)
+  
+  # now convert csf_ratios into a dataframe
+  csf_ratios_df = as.data.frame(csf_ratios)
+  csf_ratios_df[2,] = csf_ratios_df[1,]
+  csf_ratios_df[1,] = colnames(csf_ratios_df)
+  csf_ratios_df = t(csf_ratios_df)
+  colnames(csf_ratios_df) = c("lipidname","ratio")
+  rownames(csf_ratios_df) = c()
+  View(csf_ratios_df)
+  
+  # now make heatmap for treatment in CSF, values will be ratio of mean change of lipid in Treated group over mean change in Placebo group
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_treat_heatmap.pdf", width = 5, height = 5)
+  hm_csf_t = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in CSF")
+  hm_csf_t = merge(hm_csf_t, csf_ratios_df, by="lipidname")
+  hm_csf_t$ratio = as.numeric(hm_csf_t$ratio)
+  ggplot(data = hm_csf_t, aes(x = term, y = reorder(lipidname, ratio, median, order=TRUE),
+                                        fill = ratio)) +
+    geom_tile(aes(fill = ratio), colour = "black") +
+    xlab(label = "Treatment Effect") +
+    ylab(label = "Lipids in CSF") +
+   scale_fill_gradient2("Ratio", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_csf_t$ratio)) +
+    geom_text(aes(term, lipidname, label = ratio), color = "black", size = 3) 
+  dev.off()
+```
+
+```{r}
+# Extra: make treatment in CSF heatmap where the values are average % change in treatment group minus % percentage change in placebo group
+
+# average % change is defined as the average lipid percentage change ((followup - baseline) / abs(baseline)) * 100 over all subjects
+
+# Need to calculate the differences, make empty data frame to store values
+  csf_diff = data.frame()
+
+  # First, calculate differences for CSF CE between treated and untreated groups
+  csf_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="CE_percent_change")
+  csf_CE_treated = csf_CE_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_CE_treated_mean = colMeans(csf_CE_treated)
+  csf_CE_placebo = csf_CE_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_CE_placebo_mean = colMeans(csf_CE_placebo)
+  csf_CE_diff = csf_CE_treated_mean - csf_CE_placebo_mean
+  csf_diff = append(csf_diff, csf_CE_diff)
+  View(csf_diff)
+  
+  # now calculate diff for CSF Cer
+  csf_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="Cer_percent_change")
+  csf_Cer_treated = csf_Cer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_Cer_treated_mean = colMeans(csf_Cer_treated)
+  csf_Cer_placebo = csf_Cer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_Cer_placebo_mean = colMeans(csf_Cer_placebo)
+  csf_Cer_diff = csf_Cer_treated_mean - csf_Cer_placebo_mean
+  csf_diff = append(csf_diff, csf_Cer_diff)
+  
+  # now calculate diff for CSF DG
+  csf_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="DG_percent_change")
+  csf_DG_treated = csf_DG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_DG_treated_mean = colMeans(csf_DG_treated)
+  csf_DG_placebo = csf_DG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_DG_placebo_mean = colMeans(csf_DG_placebo)
+  csf_DG_diff = csf_DG_treated_mean - csf_DG_placebo_mean
+  csf_diff = append(csf_diff, csf_DG_diff)
+  
+  # now calculate diff for CSF PC
+  csf_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="PC_percent_change")
+  csf_PC_treated = csf_PC_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_PC_treated_mean = colMeans(csf_PC_treated)
+  csf_PC_placebo = csf_PC_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_PC_placebo_mean = colMeans(csf_PC_placebo)
+  csf_PC_diff = csf_PC_treated_mean - csf_PC_placebo_mean
+  csf_diff = append(csf_diff, csf_PC_diff)
+  
+  # now calculate diff for CSF TG
+  csf_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="TG_percent_change")
+  csf_TG_treated = csf_TG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_TG_treated_mean = colMeans(csf_TG_treated)
+  csf_TG_placebo = csf_TG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  csf_TG_placebo_mean = colMeans(csf_TG_placebo)
+  csf_TG_diff = csf_TG_treated_mean - csf_TG_placebo_mean
+  csf_diff = append(csf_diff, csf_TG_diff)
+  
+  # now convert csf_diff into a dataframe
+  csf_diff_df = as.data.frame(csf_diff)
+  csf_diff_df[2,] = csf_diff_df[1,]
+  csf_diff_df[1,] = colnames(csf_diff_df)
+  csf_diff_df = t(csf_diff_df)
+  colnames(csf_diff_df) = c("lipidname","diff")
+  rownames(csf_diff_df) = c()
+  
+  # convert to % scale, round to 1 digits
+  csf_diff_df[,2] = as.numeric(csf_diff_df[,2]) * 100
+  csf_diff_df[,2] = round(as.numeric(csf_diff_df[,2]), 1)
+  View(csf_diff_df)
+  
+  # now make heatmap for treatment in CSF, values will be diff of mean change of lipid in Treated group minus mean change in Placebo group
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_treat_heatmap_diff.pdf", width = 5, height = 5)
+  hm_csf_t = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in CSF")
+  hm_csf_t = merge(hm_csf_t, csf_diff_df, by="lipidname")
+  hm_csf_t$diff = as.numeric(hm_csf_t$diff)
+  ggplot(data = hm_csf_t, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in CSF") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_csf_t$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+  
+  # same thing as above, but delete non-ARA and non-DHA lipids according to table 2
+  hm_csf_t = hm_csf_t[-c(7,19,20),]
+  
+  # Now output the new figure
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_treat_heatmap_diff_delete_non_DHA_ARA.pdf", width = 5, height = 5)
+  ggplot(data = hm_csf_t, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in CSF") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_csf_t$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+  
+```
+
+```{r}
+# treatment in plasma, original version
+  hm_pla_t = read_excel(file.path(datadir,"Laila_lm.xlsx"), sheet = "treatment in plasma")
+  star = NA
+  hm_pla_t = cbind(hm_pla_t, star)
+  hm_pla_t$star[hm_pla_t$pval<0.05]="*"
+  hm_pla_t$star[hm_pla_t$pval<0.001]="**"
+  hm_pla_t$star[hm_pla_t$pval<0.0001]="***"
+  ggplot(data = hm_pla_t, mapping = aes(x = term,
+                                        y = reorder(lipidname, beta, median, order=TRUE),
+                                        fill = beta)) +
+    geom_tile(aes(fill = beta), colour = "black") +
+    xlab(label = "Treatment Effect") +
+    ylab(label = "Lipids in Plasma") +
+    scale_fill_gradient2('beta', low = "black", mid = "white", high = "red4", midpoint = 0, limits=c(-109,549), breaks=seq(-109,559,by=40)) +
+    geom_text(aes(term, lipidname, label = star), color = "black", size = 3)
+```
+
+
+```{r}
+# Now make heatmap for treatment in plasma, ratios of mean change of lipids in DHA group over mean change of lipids in Placebo group
+  # Need to calculate the ratios, make empty data frame to store values
+  pla_ratios = data.frame()
+  # First, calculate ratio for PLA CE between treated and untreated groups
+  pla_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="CE")
+  pla_CE_treated = pla_CE_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_CE_treated_mean = colMeans(pla_CE_treated, na.rm = TRUE)
+  pla_CE_placebo = pla_CE_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_CE_placebo_mean = colMeans(pla_CE_placebo, na.rm = TRUE)
+  pla_CE_ratio = pla_CE_treated_mean/pla_CE_placebo_mean
+  pla_ratios = append(pla_ratios, pla_CE_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla Cer
+  pla_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="Cer")
+  pla_Cer_treated = pla_Cer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_Cer_treated_mean = colMeans(pla_Cer_treated, na.rm = TRUE)
+  pla_Cer_placebo = pla_Cer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_Cer_placebo_mean = colMeans(pla_Cer_placebo, na.rm = TRUE)
+  pla_Cer_ratio = pla_Cer_treated_mean/pla_Cer_placebo_mean
+  pla_ratios = append(pla_ratios, pla_Cer_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla DG
+  pla_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="DG")
+  pla_DG_treated = pla_DG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_DG_treated_mean = colMeans(pla_DG_treated, na.rm = TRUE)
+  pla_DG_placebo = pla_DG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_DG_placebo_mean = colMeans(pla_DG_placebo, na.rm = TRUE)
+  pla_DG_ratio = pla_DG_treated_mean/pla_DG_placebo_mean
+  pla_ratios = append(pla_ratios, pla_DG_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla HexCer
+  pla_HexCer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="HexCer")
+  pla_HexCer_treated = pla_HexCer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_HexCer_treated_mean = colMeans(pla_HexCer_treated, na.rm = TRUE)
+  pla_HexCer_placebo = pla_HexCer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_HexCer_placebo_mean = colMeans(pla_HexCer_placebo, na.rm = TRUE)
+  pla_HexCer_ratio = pla_HexCer_treated_mean/pla_HexCer_placebo_mean
+  pla_ratios = append(pla_ratios, pla_HexCer_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla PC
+  pla_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="PC")
+  pla_PC_treated = pla_PC_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_PC_treated_mean = colMeans(pla_PC_treated, na.rm = TRUE)
+  pla_PC_placebo = pla_PC_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_PC_placebo_mean = colMeans(pla_PC_placebo, na.rm = TRUE)
+  pla_PC_ratio = pla_PC_treated_mean/pla_PC_placebo_mean
+  pla_ratios = append(pla_ratios, pla_PC_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla SM
+  pla_SM_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="SM")
+  pla_SM_treated = pla_SM_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_SM_treated_mean = colMeans(pla_SM_treated, na.rm = TRUE)
+  pla_SM_placebo = pla_SM_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_SM_placebo_mean = colMeans(pla_SM_placebo, na.rm = TRUE)
+  pla_SM_ratio = pla_SM_treated_mean/pla_SM_placebo_mean
+  pla_ratios = append(pla_ratios, pla_SM_ratio)
+  View(pla_ratios)
+  
+  # now calculate ratio for pla TG
+  pla_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="TG")
+  pla_TG_treated = pla_TG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_TG_treated_mean = colMeans(pla_TG_treated, na.rm = TRUE)
+  pla_TG_placebo = pla_TG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_TG_placebo_mean = colMeans(pla_TG_placebo, na.rm = TRUE)
+  pla_TG_ratio = pla_TG_treated_mean/pla_TG_placebo_mean
+  pla_ratios = append(pla_ratios, pla_TG_ratio)
+  View(pla_ratios)
+  
+  # now convert pla_ratios into a dataframe
+  pla_ratios_df = as.data.frame(pla_ratios)
+  pla_ratios_df[2,] = pla_ratios_df[1,]
+  pla_ratios_df[1,] = colnames(pla_ratios_df)
+  pla_ratios_df = t(pla_ratios_df)
+  colnames(pla_ratios_df) = c("lipidname","ratio")
+  rownames(pla_ratios_df) = c()
+  View(pla_ratios_df)
+  
+  # Now draw heatmap for Treatment effect mean change of lipids in DHA treated group over Placebo group in Plasma
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/pla_treat_heatmap.pdf", width = 5, height = 8)
+  hm_pla_t = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in plasma")
+  hm_pla_t = merge(hm_pla_t, pla_ratios_df, by="lipidname")
+  hm_pla_t$ratio = as.numeric(hm_pla_t$ratio)
+  ggplot(data = hm_pla_t, aes(x = term, y = reorder(lipidname, ratio, median, order=TRUE),
+                                        fill = ratio)) +
+    geom_tile(aes(fill = ratio), colour = "black") +
+    xlab(label = "Treatment Effect") +
+    ylab(label = "Lipids in Plasma") +
+   scale_fill_gradient2("Ratio", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_pla_t$ratio)) +
+    geom_text(aes(term, lipidname, label = ratio), color = "black", size = 3) 
+  dev.off()
+```
+
+```{r}
+# Now make heatmap for treatment in plasma, mean % change of lipids in DHA group minus mean % change of lipids in Placebo group
+  # Need to calculate the diffs, make empty data frame to store values
+  pla_diff = data.frame()
+  # First, calculate diff between PLA CE between treated and untreated groups
+  pla_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="CE_percent_change")
+  pla_CE_treated = pla_CE_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_CE_treated_mean = colMeans(pla_CE_treated, na.rm = TRUE)
+  pla_CE_placebo = pla_CE_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_CE_placebo_mean = colMeans(pla_CE_placebo, na.rm = TRUE)
+  pla_CE_diff = pla_CE_treated_mean - pla_CE_placebo_mean
+  pla_diff = append(pla_diff, pla_CE_diff)
+  
+  # now calculate diff for pla Cer
+  pla_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="Cer_percent_change")
+  pla_Cer_treated = pla_Cer_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_Cer_treated_mean = colMeans(pla_Cer_treated, na.rm = TRUE)
+  pla_Cer_placebo = pla_Cer_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_Cer_placebo_mean = colMeans(pla_Cer_placebo, na.rm = TRUE)
+  pla_Cer_diff = pla_Cer_treated_mean - pla_Cer_placebo_mean
+  pla_diff = append(pla_diff, pla_Cer_diff)
+  
+  # now calculate diff for pla DG
+  pla_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="DG_percent_change")
+  pla_DG_treated = pla_DG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_DG_treated_mean = colMeans(pla_DG_treated, na.rm = TRUE)
+  pla_DG_placebo = pla_DG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_DG_placebo_mean = colMeans(pla_DG_placebo, na.rm = TRUE)
+  pla_DG_diff = pla_DG_treated_mean - pla_DG_placebo_mean
+  pla_diff = append(pla_diff, pla_DG_diff)
+  
+  # now calculate diff for pla PC
+  pla_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="PC_percent_change")
+  pla_PC_treated = pla_PC_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_PC_treated_mean = colMeans(pla_PC_treated, na.rm = TRUE)
+  pla_PC_placebo = pla_PC_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_PC_placebo_mean = colMeans(pla_PC_placebo, na.rm = TRUE)
+  pla_PC_diff = pla_PC_treated_mean - pla_PC_placebo_mean
+  pla_diff = append(pla_diff, pla_PC_diff)
+  
+  # now calculate diff for pla SM
+  pla_SM_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="SM_percent_change")
+  pla_SM_treated = pla_SM_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_SM_treated_mean = colMeans(pla_SM_treated, na.rm = TRUE)
+  pla_SM_placebo = pla_SM_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_SM_placebo_mean = colMeans(pla_SM_placebo, na.rm = TRUE)
+  pla_SM_diff = pla_SM_treated_mean - pla_SM_placebo_mean
+  pla_diff = append(pla_diff, pla_SM_diff)
+  
+  # now calculate diff for pla TG
+  pla_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="TG_percent_change")
+  pla_TG_treated = pla_TG_change[c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_TG_treated_mean = colMeans(pla_TG_treated, na.rm = TRUE)
+  pla_TG_placebo = pla_TG_change[-c(3,5,7,11,13,14,15,17,18,19,20,22,26),]
+  pla_TG_placebo_mean = colMeans(pla_TG_placebo, na.rm = TRUE)
+  pla_TG_diff = pla_TG_treated_mean - pla_TG_placebo_mean
+  pla_diff = append(pla_diff, pla_TG_diff)
+  View(pla_diff)
+  
+  # now convert pla_diff into a dataframe
+  pla_diff_df = as.data.frame(pla_diff)
+  pla_diff_df[2,] = pla_diff_df[1,]
+  pla_diff_df[1,] = colnames(pla_diff_df)
+  pla_diff_df = t(pla_diff_df)
+  colnames(pla_diff_df) = c("lipidname","diff")
+  rownames(pla_diff_df) = c()
+  View(pla_diff_df)
+  
+  # convert to percentage, round off to 1 digit
+  pla_diff_df[,2] = as.numeric(pla_diff_df[,2]) * 100
+  pla_diff_df[,2] = round(as.numeric(pla_diff_df[,2]), 1)
+  
+  View(pla_diff_df)
+  
+  # Now draw heatmap for Treatment effect mean change of lipids in DHA treated group minus Placebo group in Plasma
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+    hm_pla_t = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in plasma")
+  hm_pla_t = merge(hm_pla_t, pla_diff_df, by="lipidname")
+  hm_pla_t$diff = as.numeric(hm_pla_t$diff)
+  
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/pla_treat_heatmap_diff.pdf", width = 5, height = 8)
+  ggplot(data = hm_pla_t, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in Plasma") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_pla_t$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+  
+  # Now the same thing as above, but delete non-DHA and non-ARA lipids
+  View(hm_pla_t)
+  hm_pla_t = hm_pla_t[-c(4,5,6,7,8,9,13,16,18,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,42,43),]
+  
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/pla_treat_heatmap_diff_delete_non_DHA_ARA.pdf", width = 5, height = 5)
+  ggplot(data = hm_pla_t, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in Plasma") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_pla_t$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+```
+
+
+```{r}
+# original version
+# apoe4 in CSF
+  hm_csf_apoe4 = read_excel(file.path(datadir,"Laila_lm.xlsx"), sheet = "apoe4 in CSF")
+  star = NA
+  hm_csf_apoe4 = cbind(hm_csf_apoe4, star)
+  hm_csf_apoe4$star[hm_csf_apoe4$pval<0.05]="*"
+  hm_csf_apoe4$star[hm_csf_apoe4$pval<0.001]="**"
+  hm_csf_apoe4$star[hm_csf_apoe4$pval<0.0001]="***"
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/apoe4_effect_by_treatment.pdf", width = 5, height = 5)
+  ggplot(data = hm_csf_apoe4, mapping = aes(x = term,
+                                        y = reorder(lipidname, beta, median, order=TRUE),
+                                        fill = beta)) +
+    geom_tile(aes(fill = beta), colour = "black") +
+    xlab(label = "ApoE4 Effect") +
+    ylab(label = "Lipids in CSF") +
+    scale_fill_gradient2('beta', low = "black", mid = "white", high = "red4", midpoint = 0, limits=c(-0.20,0.05), breaks=seq(-0.20,0.05,by=40)) +
+    geom_text(aes(term, lipidname, label = star), color = "black", size = 3)
+  dev.off()
+  
+  # apoe4 in plasma
+  hm_pla_apoe4 = read_excel(file.path(datadir,"Laila_lm.xlsx"), sheet = "apoe4 in plasma")
+  star = NA
+  hm_pla_apoe4 = cbind(hm_pla_apoe4, star)
+  hm_pla_apoe4$star[hm_pla_apoe4$pval<0.05]="*"
+  hm_pla_apoe4$star[hm_pla_apoe4$pval<0.001]="**"
+  hm_pla_apoe4$star[hm_pla_apoe4$pval<0.0001]="***"
+  ggplot(data = hm_pla_apoe4, mapping = aes(x = term,
+                                            y = reorder(lipidname, beta, median, order=TRUE),
+                                            fill = beta)) +
+    geom_tile(aes(fill = beta), colour = "black") +
+    xlab(label = "ApoE4 Effect") +
+    ylab(label = "Lipids in Plasma") +
+    scale_fill_gradient2('beta', low = "black", mid = "white", high = "red4", midpoint = 0, limits=c(-34,-14), breaks=seq(-34,-14,by=40)) +
+    geom_text(aes(term, lipidname, label = star), color = "black", size = 3)
+}  
+```
+
+
+```{r}
+# Now make heatmap for lipids selected for significant change by ApoE4 status, reporting mean of change in lipids in ApoE4 group over Non-ApoE4 group
+
+# first calculate such ratios for CSF
+  csf_ratios_apoe = data.frame()
+
+  # First, calculate ratio for CSF CE between ApoE4 and non-ApoE4 groups
+  csf_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="CE")
+  
+  csf_CE_apoe = csf_CE_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_CE_apoe_mean = colMeans(csf_CE_apoe)
+  csf_CE_placebo = csf_CE_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_CE_placebo_mean = colMeans(csf_CE_placebo)
+  csf_CE_ratio = csf_CE_apoe_mean/csf_CE_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_CE_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF Cer
+  csf_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="Cer")
+  csf_Cer_apoe = csf_Cer_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_Cer_apoe_mean = colMeans(csf_Cer_apoe)
+  csf_Cer_placebo = csf_Cer_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_Cer_placebo_mean = colMeans(csf_Cer_placebo)
+  csf_Cer_ratio = csf_Cer_apoe_mean/csf_Cer_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_Cer_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF DG
+  csf_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="DG")
+  csf_DG_apoe = csf_DG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_DG_apoe_mean = colMeans(csf_DG_apoe)
+  csf_DG_placebo = csf_DG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_DG_placebo_mean = colMeans(csf_DG_placebo)
+  csf_DG_ratio = csf_DG_apoe_mean/csf_DG_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_DG_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF HexCer
+  csf_HexCer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="HexCer")
+  csf_HexCer_apoe = csf_HexCer_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_HexCer_apoe_mean = colMeans(csf_HexCer_apoe)
+  csf_HexCer_placebo = csf_HexCer_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_HexCer_placebo_mean = colMeans(csf_HexCer_placebo)
+  csf_HexCer_ratio = csf_HexCer_apoe_mean/csf_HexCer_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_HexCer_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF PC
+  csf_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="PC")
+  csf_PC_apoe = csf_PC_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_PC_apoe_mean = colMeans(csf_PC_apoe)
+  csf_PC_placebo = csf_PC_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_PC_placebo_mean = colMeans(csf_PC_placebo)
+  csf_PC_ratio = csf_PC_apoe_mean/csf_PC_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_PC_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF SM
+  csf_SM_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="SM")
+  csf_SM_apoe = csf_SM_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_SM_apoe_mean = colMeans(csf_SM_apoe)
+  csf_SM_placebo = csf_SM_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_SM_placebo_mean = colMeans(csf_SM_placebo)
+  csf_SM_ratio = csf_SM_apoe_mean/csf_SM_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_SM_ratio)
+  View(csf_ratios_apoe)
+  
+  # now calculate ratio for CSF TG
+  csf_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="TG")
+  csf_TG_apoe = csf_TG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_TG_apoe_mean = colMeans(csf_TG_apoe)
+  csf_TG_placebo = csf_TG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_TG_placebo_mean = colMeans(csf_TG_placebo)
+  csf_TG_ratio = csf_TG_apoe_mean/csf_TG_placebo_mean
+  csf_ratios_apoe = append(csf_ratios_apoe, csf_TG_ratio)
+  View(csf_ratios_apoe)
+  
+  # now convert csf_ratios_apoe into a dataframe
+  csf_ratios_apoe_df = as.data.frame(csf_ratios_apoe)
+  csf_ratios_apoe_df[2,] = csf_ratios_apoe_df[1,]
+  csf_ratios_apoe_df[1,] = colnames(csf_ratios_apoe_df)
+  csf_ratios_apoe_df = t(csf_ratios_apoe_df)
+  colnames(csf_ratios_apoe_df) = c("lipidname","ratio")
+  rownames(csf_ratios_apoe_df) = c()
+  View(csf_ratios_apoe_df)
+
+# Now make plot for mean change of lipids in ApoE4 group over non-ApoE4 group, CSF
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_apoe4_heatmap_new.pdf", width = 5, height = 5)
+  hm_csf_apoe4 = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "apoe4 in CSF")
+  hm_csf_apoe4 = merge(hm_csf_apoe4, csf_ratios_apoe_df, by="lipidname")
+  hm_csf_apoe4$ratio = as.numeric(hm_csf_apoe4$ratio)
+  ggplot(data = hm_csf_apoe4, aes(x = term, y = reorder(lipidname, ratio, median, order=TRUE),
+                                        fill = ratio)) +
+    geom_tile(aes(fill = ratio), colour = "black") +
+    xlab(label = "ApoE4 Effect") +
+    ylab(label = "Lipids in CSF") +
+   scale_fill_gradient2("Ratio", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_csf_apoe4$ratio)) +
+    geom_text(aes(term, lipidname, label = ratio), color = "black", size = 3) 
+  dev.off()
+```
+
+```{r}
+# extra V2: make heatmap for apoe4 effect in csf, filled with diff between ave % change in carriers minus non-carriers
+
+# first calculate such diff for CSF
+  csf_diff_apoe = data.frame()
+
+  # First, calculate diff for CSF CE between ApoE4 and non-ApoE4 groups
+  csf_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="CE_percent_change")
+  
+  csf_CE_apoe = csf_CE_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_CE_apoe_mean = colMeans(csf_CE_apoe)
+  csf_CE_placebo = csf_CE_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_CE_placebo_mean = colMeans(csf_CE_placebo)
+  csf_CE_diff = csf_CE_apoe_mean - csf_CE_placebo_mean
+  csf_diff_apoe = append(csf_diff_apoe, csf_CE_diff)
+  
+  # now calculate ratio for CSF DG
+  csf_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="DG")
+  csf_DG_apoe = csf_DG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_DG_apoe_mean = colMeans(csf_DG_apoe)
+  csf_DG_placebo = csf_DG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_DG_placebo_mean = colMeans(csf_DG_placebo)
+  csf_DG_diff = csf_DG_apoe_mean - csf_DG_placebo_mean
+  csf_diff_apoe = append(csf_diff_apoe, csf_DG_diff)
+
+  # now calculate ratio for CSF PC
+  csf_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="PC")
+  csf_PC_apoe = csf_PC_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_PC_apoe_mean = colMeans(csf_PC_apoe)
+  csf_PC_placebo = csf_PC_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_PC_placebo_mean = colMeans(csf_PC_placebo)
+  csf_PC_diff = csf_PC_apoe_mean - csf_PC_placebo_mean
+  csf_diff_apoe = append(csf_diff_apoe, csf_PC_diff)
+  
+  # now calculate ratio for CSF TG
+  csf_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/CSF_change.xlsx", sheet="TG")
+  csf_TG_apoe = csf_TG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_TG_apoe_mean = colMeans(csf_TG_apoe)
+  csf_TG_placebo = csf_TG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  csf_TG_placebo_mean = colMeans(csf_TG_placebo)
+  csf_TG_diff = csf_TG_apoe_mean - csf_TG_placebo_mean
+  csf_diff_apoe = append(csf_diff_apoe, csf_TG_diff)
+  
+  # now convert csf_diff_apoe into a dataframe
+  csf_diff_apoe_df = as.data.frame(csf_diff_apoe)
+  csf_diff_apoe_df[2,] = csf_diff_apoe_df[1,]
+  csf_diff_apoe_df[1,] = colnames(csf_diff_apoe_df)
+  csf_diff_apoe_df = t(csf_diff_apoe_df)
+  colnames(csf_diff_apoe_df) = c("lipidname","diff")
+  rownames(csf_diff_apoe_df) = c()
+  View(csf_diff_apoe_df)
+  
+# Make percentage, round off to 1 digit
+  csf_diff_apoe_df[,2] = as.numeric(csf_diff_apoe_df[,2]) * 100
+  csf_diff_apoe_df[,2] = round(as.numeric(csf_diff_apoe_df[,2]), 1)
+  View(csf_diff_apoe_df)
+
+# Now make plot for mean percentage change of lipids concentration in ApoE4 group minus non-ApoE4 group, CSF
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/csf_apoe4_heatmap_diff.pdf", width = 5, height = 5)
+  hm_csf_apoe4 = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "apoe4 in CSF")
+  hm_csf_apoe4 = merge(hm_csf_apoe4, csf_diff_apoe_df, by="lipidname")
+  hm_csf_apoe4$diff = as.numeric(hm_csf_apoe4$diff)
+  ggplot(data = hm_csf_apoe4, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in CSF") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_csf_apoe4$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+```
+
+
+```{r}
+# Now make heatmap for ApoE4 effect in plasma, ratios of mean change of lipids in ApoE4 group over mean change of lipids in non-ApoE4 group
+  # Need to calculate the ratios, make empty data frame to store values
+  pla_ratios_apoe = data.frame()
+  # First, calculate ratio for PLA CE between apoe and unapoe groups
+  pla_CE_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="CE")
+  pla_CE_apoe = pla_CE_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_CE_apoe_mean = colMeans(pla_CE_apoe, na.rm = TRUE)
+  pla_CE_placebo = pla_CE_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_CE_placebo_mean = colMeans(pla_CE_placebo, na.rm = TRUE)
+  pla_CE_ratio = pla_CE_apoe_mean/pla_CE_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_CE_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla Cer
+  pla_Cer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="Cer")
+  pla_Cer_apoe = pla_Cer_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_Cer_apoe_mean = colMeans(pla_Cer_apoe, na.rm = TRUE)
+  pla_Cer_placebo = pla_Cer_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_Cer_placebo_mean = colMeans(pla_Cer_placebo, na.rm = TRUE)
+  pla_Cer_ratio = pla_Cer_apoe_mean/pla_Cer_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_Cer_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla DG
+  pla_DG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="DG")
+  pla_DG_apoe = pla_DG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_DG_apoe_mean = colMeans(pla_DG_apoe, na.rm = TRUE)
+  pla_DG_placebo = pla_DG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_DG_placebo_mean = colMeans(pla_DG_placebo, na.rm = TRUE)
+  pla_DG_ratio = pla_DG_apoe_mean/pla_DG_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_DG_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla HexCer
+  pla_HexCer_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="HexCer")
+  pla_HexCer_apoe = pla_HexCer_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_HexCer_apoe_mean = colMeans(pla_HexCer_apoe, na.rm = TRUE)
+  pla_HexCer_placebo = pla_HexCer_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_HexCer_placebo_mean = colMeans(pla_HexCer_placebo, na.rm = TRUE)
+  pla_HexCer_ratio = pla_HexCer_apoe_mean/pla_HexCer_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_HexCer_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla PC
+  pla_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="PC")
+  pla_PC_apoe = pla_PC_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_PC_apoe_mean = colMeans(pla_PC_apoe, na.rm = TRUE)
+  pla_PC_placebo = pla_PC_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_PC_placebo_mean = colMeans(pla_PC_placebo, na.rm = TRUE)
+  pla_PC_ratio = pla_PC_apoe_mean/pla_PC_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_PC_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla SM
+  pla_SM_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="SM")
+  pla_SM_apoe = pla_SM_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_SM_apoe_mean = colMeans(pla_SM_apoe, na.rm = TRUE)
+  pla_SM_placebo = pla_SM_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_SM_placebo_mean = colMeans(pla_SM_placebo, na.rm = TRUE)
+  pla_SM_ratio = pla_SM_apoe_mean/pla_SM_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_SM_ratio)
+  View(pla_ratios_apoe)
+  
+  # now calculate ratio for pla TG
+  pla_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="TG")
+  pla_TG_apoe = pla_TG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_TG_apoe_mean = colMeans(pla_TG_apoe, na.rm = TRUE)
+  pla_TG_placebo = pla_TG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_TG_placebo_mean = colMeans(pla_TG_placebo, na.rm = TRUE)
+  pla_TG_ratio = pla_TG_apoe_mean/pla_TG_placebo_mean
+  pla_ratios_apoe = append(pla_ratios_apoe, pla_TG_ratio)
+  View(pla_ratios_apoe)
+  
+  # now convert pla_ratios_apoe into a dataframe
+  pla_ratios_apoe_df = as.data.frame(pla_ratios_apoe)
+  pla_ratios_apoe_df[2,] = pla_ratios_apoe_df[1,]
+  pla_ratios_apoe_df[1,] = colnames(pla_ratios_apoe_df)
+  pla_ratios_apoe_df = t(pla_ratios_apoe_df)
+  colnames(pla_ratios_apoe_df) = c("lipidname","ratio")
+  rownames(pla_ratios_apoe_df) = c()
+  View(pla_ratios_apoe_df)
+  
+  # Now make the heatmap for mean change of lipids in apoe4 group over mean change of lipids in placebo (non-apoe4) group
+  
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/pla_apoe4_heatmap_new.pdf", width = 5, height = 2)
+  hm_pla_apoe4 = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "apoe4 in plasma")
+  hm_pla_apoe4 = merge(hm_pla_apoe4, pla_ratios_apoe_df, by="lipidname")
+  hm_pla_apoe4$ratio = as.numeric(hm_pla_apoe4$ratio)
+  ggplot(data = hm_pla_apoe4, aes(x = term, y = reorder(lipidname, ratio, median, order=TRUE),
+                                        fill = ratio)) +
+    geom_tile(aes(fill = ratio), colour = "black") +
+    xlab(label = "ApoE4 Effect") +
+    ylab(label = "Lipids in Plasma") +
+   scale_fill_gradient2("Ratio", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_pla_apoe4$ratio)) +
+    geom_text(aes(term, lipidname, label = ratio), color = "black", size = 3) 
+  dev.off()
+```
+
+```{r}
+# Now make heatmap for ApoE4 effect in plasma, filled with difference of mean % change of lipids in ApoE4 group minus mean % change of lipids in non-ApoE4 group
+  # Need to calculate the diffs, make empty data frame to store values
+  pla_diff_apoe = data.frame()
+
+  # now calculate diff for pla PC
+  pla_PC_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="PC_percent_change")
+  pla_PC_apoe = pla_PC_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_PC_apoe_mean = colMeans(pla_PC_apoe, na.rm = TRUE)
+  pla_PC_placebo = pla_PC_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_PC_placebo_mean = colMeans(pla_PC_placebo, na.rm = TRUE)
+  pla_PC_diff = pla_PC_apoe_mean - pla_PC_placebo_mean
+  pla_diff_apoe = append(pla_diff_apoe, pla_PC_diff)
+
+  # now calculate diff for pla TG
+  pla_TG_change = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Plasma_change.xlsx", sheet="TG_percent_change")
+  pla_TG_apoe = pla_TG_change[c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_TG_apoe_mean = colMeans(pla_TG_apoe, na.rm = TRUE)
+  pla_TG_placebo = pla_TG_change[-c(1,2,3,6,7,10,11,12,13,14,15,16,17),]
+  pla_TG_placebo_mean = colMeans(pla_TG_placebo, na.rm = TRUE)
+  pla_TG_diff = pla_TG_apoe_mean - pla_TG_placebo_mean
+  pla_diff_apoe = append(pla_diff_apoe, pla_TG_diff)
+  
+  # now convert pla_diff_apoe into a dataframe
+  pla_diff_apoe_df = as.data.frame(pla_diff_apoe)
+  pla_diff_apoe_df[2,] = pla_diff_apoe_df[1,]
+  pla_diff_apoe_df[1,] = colnames(pla_diff_apoe_df)
+  pla_diff_apoe_df = t(pla_diff_apoe_df)
+  colnames(pla_diff_apoe_df) = c("lipidname","diff")
+  rownames(pla_diff_apoe_df) = c()
+  View(pla_diff_apoe_df)
+  
+  # convert to percentage, round to 1 digits
+  pla_diff_apoe_df[,2] = as.numeric(pla_diff_apoe_df[,2]) * 100
+  pla_diff_apoe_df[,2] = round(as.numeric(pla_diff_apoe_df[,2]), 1)
+  
+  # Now make the heatmap for mean % change of lipids in apoe4 group minus mean % change of lipids in placebo (non-apoe4) group
+  
+  datadir = file.path("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data")
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/updated/pla_apoe4_heatmap_diff.pdf", width = 5, height = 2)
+  hm_pla_apoe4 = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "apoe4 in plasma")
+  hm_pla_apoe4 = merge(hm_pla_apoe4, pla_diff_apoe_df, by="lipidname")
+  hm_pla_apoe4$diff = as.numeric(hm_pla_apoe4$diff)
+  ggplot(data = hm_pla_apoe4, aes(x = term, y = reorder(lipidname, diff, median, order=TRUE),
+                                        fill = diff)) +
+    geom_tile(aes(fill = diff), colour = "black") +
+    xlab(label = "") +
+    ylab(label = "Lipids in Plasma") +
+   scale_fill_gradient2("Difference (%)", low = "black", mid = "white", high = "red4", midpoint = 0, limits=range(hm_pla_apoe4$diff)) +
+    geom_text(aes(term, lipidname, label = diff), color = "black", size = 3) 
+  dev.off()
+```
+
+
+
+```{r}
+#grouped lipids
+{
+  # TG in CSF
+  {
+    df_grouped_tg = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                     sheet = "TG_mean")
+    df_grouped_tg = df_grouped_tg[,c(33,34,35)]
+    df_grouped_tg_change = data.frame(matrix(ncol=length(df_grouped_tg),nrow=26, dimnames=list(NULL, colnames(df_grouped_tg))))
+    for (i in 1:26) {
+      df_grouped_tg_change[i,] = df_grouped_tg[2*i,]-df_grouped_tg[2*i-1,]
+    }
+    df_grouped_tg_baseline = df_grouped_tg[-even_row, ]
+    summary(lm(df_grouped_tg_change$SFA~ft_treatment+df_grouped_tg_baseline$SFA))
+    summary(lm(df_grouped_tg_change$MUFA~ft_treatment+df_grouped_tg_baseline$MUFA))
+    summary(lm(df_grouped_tg_change$PUFA~ft_treatment+df_grouped_tg_baseline$PUFA))
+    summary(lm(df_grouped_tg_change$SFA~ft_apoe4+df_grouped_tg_baseline$SFA))
+    summary(lm(df_grouped_tg_change$MUFA~ft_apoe4+df_grouped_tg_baseline$MUFA))
+    summary(lm(df_grouped_tg_change$PUFA~ft_apoe4+df_grouped_tg_baseline$PUFA))
+  }
+  # TG in plasma
+  {
+    df_grouped_tg_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "TG_mean_pla")
+    df_grouped_tg_pla = df_grouped_tg_pla[,c(33,34,35)]
+    df_grouped_tg_change_pla = data.frame(matrix(ncol=length(df_grouped_tg_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_tg_pla))))
+    for (i in 1:26) {
+      df_grouped_tg_change_pla[i,] = df_grouped_tg_pla[2*i,]-df_grouped_tg_pla[2*i-1,]
+    }
+    df_grouped_tg_baseline_pla = df_grouped_tg_pla[-even_row, ]
+    summary(lm(df_grouped_tg_change_pla$SFA~ft_treatment+df_grouped_tg_baseline_pla$SFA))
+    summary(lm(df_grouped_tg_change_pla$MUFA~ft_treatment+df_grouped_tg_baseline_pla$MUFA))
+    summary(lm(df_grouped_tg_change_pla$PUFA~ft_treatment+df_grouped_tg_baseline_pla$PUFA))
+    summary(lm(df_grouped_tg_change_pla$SFA~ft_apoe4+df_grouped_tg_baseline_pla$SFA))
+    summary(lm(df_grouped_tg_change_pla$MUFA~ft_apoe4+df_grouped_tg_baseline_pla$MUFA))
+    summary(lm(df_grouped_tg_change_pla$PUFA~ft_apoe4+df_grouped_tg_baseline_pla$PUFA))
+  }
+  
+  # SM in CSF
+  {
+    df_grouped_sm = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "SM_mean")
+    df_grouped_sm = df_grouped_sm[,c(20,21)]
+    df_grouped_sm_change = data.frame(matrix(ncol=length(df_grouped_sm),nrow=26, dimnames=list(NULL, colnames(df_grouped_sm))))
+    for (i in 1:26) {
+      df_grouped_sm_change[i,] = df_grouped_sm[2*i,]-df_grouped_sm[2*i-1,]
+    }
+    df_grouped_sm_baseline = df_grouped_sm[-even_row, ]
+    summary(lm(df_grouped_sm_change$SFA~ft_treatment+df_grouped_sm_baseline$SFA))
+    summary(lm(df_grouped_sm_change$MUFA~ft_treatment+df_grouped_sm_baseline$MUFA))
+    # summary(lm(df_grouped_sm_change$PUFA~ft_treatment+df_grouped_sm_baseline$PUFA))
+    summary(lm(df_grouped_sm_change$SFA~ft_apoe4+df_grouped_sm_baseline$SFA))
+    summary(lm(df_grouped_sm_change$MUFA~ft_apoe4+df_grouped_sm_baseline$MUFA))
+    # summary(lm(df_grouped_sm_change$PUFA~ft_apoe4+df_grouped_sm_baseline$PUFA))
+  }
+  # SM in plasma
+  {
+    df_grouped_sm_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "SM_mean_pla")
+    df_grouped_sm_pla = df_grouped_sm_pla[,c(20,21)]
+    df_grouped_sm_change_pla = data.frame(matrix(ncol=length(df_grouped_sm_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_sm_pla))))
+    for (i in 1:26) {
+      df_grouped_sm_change_pla[i,] = df_grouped_sm_pla[2*i,]-df_grouped_sm_pla[2*i-1,]
+    }
+    df_grouped_sm_baseline_pla = df_grouped_sm_pla[-even_row, ]
+    summary(lm(df_grouped_sm_change_pla$SFA~ft_treatment+df_grouped_sm_baseline_pla$SFA))
+    summary(lm(df_grouped_sm_change_pla$MUFA~ft_treatment+df_grouped_sm_baseline_pla$MUFA))
+    # summary(lm(df_grouped_sm_change$PUFA~ft_treatment+df_grouped_sm_baseline$PUFA))
+    summary(lm(df_grouped_sm_change_pla$SFA~ft_apoe4+df_grouped_sm_baseline_pla$SFA))
+    summary(lm(df_grouped_sm_change_pla$MUFA~ft_apoe4+df_grouped_sm_baseline_pla$MUFA))
+    # summary(lm(df_grouped_sm_change$PUFA~ft_apoe4+df_grouped_sm_baseline$PUFA))
+  }
+  
+  # PC in CSF
+  {
+    df_grouped_pc = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "PC_mean")
+    df_grouped_pc = df_grouped_pc[,c(40,41,42)]
+    df_grouped_pc_change = data.frame(matrix(ncol=length(df_grouped_pc),nrow=26, dimnames=list(NULL, colnames(df_grouped_pc))))
+    for (i in 1:26) {
+      df_grouped_pc_change[i,] = df_grouped_pc[2*i,]-df_grouped_pc[2*i-1,]
+    }
+    df_grouped_pc_baseline = df_grouped_pc[-even_row, ]
+    summary(lm(df_grouped_pc_change$SFA~ft_treatment+df_grouped_pc_baseline$SFA))
+    summary(lm(df_grouped_pc_change$MUFA~ft_treatment+df_grouped_pc_baseline$MUFA))
+    summary(lm(df_grouped_pc_change$PUFA~ft_treatment+df_grouped_pc_baseline$PUFA))
+    summary(lm(df_grouped_pc_change$SFA~ft_apoe4+df_grouped_pc_baseline$SFA))
+    summary(lm(df_grouped_pc_change$MUFA~ft_apoe4+df_grouped_pc_baseline$MUFA))
+    summary(lm(df_grouped_pc_change$PUFA~ft_apoe4+df_grouped_pc_baseline$PUFA))
+  }
+  # PC in plasma
+  {
+    df_grouped_pc_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                   sheet = "PC_mean_pla")
+    df_grouped_pc_pla = df_grouped_pc_pla[,c(40,41,42)]
+    df_grouped_pc_change_pla = data.frame(matrix(ncol=length(df_grouped_pc_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_pc_pla))))
+    for (i in 1:26) {
+      df_grouped_pc_change_pla[i,] = df_grouped_pc_pla[2*i,]-df_grouped_pc_pla[2*i-1,]
+    }
+    df_grouped_pc_baseline_pla = df_grouped_pc_pla[-even_row, ]
+    summary(lm(df_grouped_pc_change_pla$SFA~ft_treatment+df_grouped_pc_baseline_pla$SFA))
+    summary(lm(df_grouped_pc_change_pla$MUFA~ft_treatment+df_grouped_pc_baseline_pla$MUFA))
+    summary(lm(df_grouped_pc_change_pla$PUFA~ft_treatment+df_grouped_pc_baseline_pla$PUFA))
+    summary(lm(df_grouped_pc_change_pla$SFA~ft_apoe4+df_grouped_pc_baseline_pla$SFA))
+    summary(lm(df_grouped_pc_change_pla$MUFA~ft_apoe4+df_grouped_pc_baseline_pla$MUFA))
+    summary(lm(df_grouped_pc_change_pla$PUFA~ft_apoe4+df_grouped_pc_baseline_pla$PUFA))
+  }
+  
+  # CE in CSF
+  {
+    df_grouped_ce = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "CE_mean")
+    df_grouped_ce = df_grouped_ce[,c(19,20,21)]
+    df_grouped_ce_change = data.frame(matrix(ncol=length(df_grouped_ce),nrow=26, dimnames=list(NULL, colnames(df_grouped_ce))))
+    for (i in 1:26) {
+      df_grouped_ce_change[i,] = df_grouped_ce[2*i,]-df_grouped_ce[2*i-1,]
+    }
+    df_grouped_ce_baseline = df_grouped_ce[-even_row, ]
+    summary(lm(df_grouped_ce_change$SFA~ft_treatment+df_grouped_ce_baseline$SFA))
+    summary(lm(df_grouped_ce_change$MUFA~ft_treatment+df_grouped_ce_baseline$MUFA))
+    summary(lm(df_grouped_ce_change$PUFA~ft_treatment+df_grouped_ce_baseline$PUFA))
+    summary(lm(df_grouped_ce_change$SFA~ft_apoe4+df_grouped_ce_baseline$SFA))
+    summary(lm(df_grouped_ce_change$MUFA~ft_apoe4+df_grouped_ce_baseline$MUFA))
+    summary(lm(df_grouped_ce_change$PUFA~ft_apoe4+df_grouped_ce_baseline$PUFA))
+  }
+  # CE in plasma
+  {
+    df_grouped_ce_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                   sheet = "CE_mean_pla")
+    df_grouped_ce_pla = df_grouped_ce_pla[,c(19,20,21)]
+    df_grouped_ce_change_pla = data.frame(matrix(ncol=length(df_grouped_ce_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_ce_pla))))
+    for (i in 1:26) {
+      df_grouped_ce_change_pla[i,] = df_grouped_ce_pla[2*i,]-df_grouped_ce_pla[2*i-1,]
+    }
+    df_grouped_ce_baseline_pla = df_grouped_ce_pla[-even_row, ]
+    summary(lm(df_grouped_ce_change_pla$SFA~ft_treatment+df_grouped_ce_baseline_pla$SFA))
+    summary(lm(df_grouped_ce_change_pla$MUFA~ft_treatment+df_grouped_ce_baseline_pla$MUFA))
+    summary(lm(df_grouped_ce_change_pla$PUFA~ft_treatment+df_grouped_ce_baseline_pla$PUFA))
+    summary(lm(df_grouped_ce_change_pla$SFA~ft_apoe4+df_grouped_ce_baseline_pla$SFA))
+    summary(lm(df_grouped_ce_change_pla$MUFA~ft_apoe4+df_grouped_ce_baseline_pla$MUFA))
+    summary(lm(df_grouped_ce_change_pla$PUFA~ft_apoe4+df_grouped_ce_baseline_pla$PUFA))
+  }
+  
+  # Cer in CSF
+  {
+    df_grouped_cer = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "Cer_mean")
+    df_grouped_cer = df_grouped_cer[,c(8,9)]
+    df_grouped_cer_change = data.frame(matrix(ncol=length(df_grouped_cer),nrow=26, dimnames=list(NULL, colnames(df_grouped_cer))))
+    for (i in 1:26) {
+      df_grouped_cer_change[i,] = df_grouped_cer[2*i,]-df_grouped_cer[2*i-1,]
+    }
+    df_grouped_cer_baseline = df_grouped_cer[-even_row, ]
+    # summary(lm(df_grouped_cer_change$SFA~ft_treatment+df_grouped_cer_baseline$SFA))
+    summary(lm(df_grouped_cer_change$MUFA~ft_treatment+df_grouped_cer_baseline$MUFA))
+    summary(lm(df_grouped_cer_change$PUFA~ft_treatment+df_grouped_cer_baseline$PUFA))
+    # summary(lm(df_grouped_cer_change$SFA~ft_apoe4+df_grouped_cer_baseline$SFA))
+    summary(lm(df_grouped_cer_change$MUFA~ft_apoe4+df_grouped_cer_baseline$MUFA))
+    summary(lm(df_grouped_cer_change$PUFA~ft_apoe4+df_grouped_cer_baseline$PUFA))
+  }
+  # Cer in plasma
+  {
+    df_grouped_cer_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                   sheet = "Cer_mean_pla")
+    df_grouped_cer_pla = df_grouped_cer_pla[,c(8,9)]
+    df_grouped_cer_change_pla = data.frame(matrix(ncol=length(df_grouped_cer_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_cer_pla))))
+    for (i in 1:26) {
+      df_grouped_cer_change_pla[i,] = df_grouped_cer_pla[2*i,]-df_grouped_cer_pla[2*i-1,]
+    }
+    df_grouped_cer_baseline_pla = df_grouped_cer_pla[-even_row, ]
+    # summary(lm(df_grouped_cer_change_pla$SFA~ft_treatment+df_grouped_cer_baseline_pla$SFA))
+    summary(lm(df_grouped_cer_change_pla$MUFA~ft_treatment+df_grouped_cer_baseline_pla$MUFA))
+    summary(lm(df_grouped_cer_change_pla$PUFA~ft_treatment+df_grouped_cer_baseline_pla$PUFA))
+    # summary(lm(df_grouped_cer_change_pla$SFA~ft_apoe4+df_grouped_cer_baseline_pla$SFA))
+    summary(lm(df_grouped_cer_change_pla$MUFA~ft_apoe4+df_grouped_cer_baseline_pla$MUFA))
+    summary(lm(df_grouped_cer_change_pla$PUFA~ft_apoe4+df_grouped_cer_baseline_pla$PUFA))
+  }
+  
+  # HexCer in CSF
+  {
+    df_grouped_hexcer = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                sheet = "HexCer_mean")
+    df_grouped_hexcer = df_grouped_hexcer[,c(8,9)]
+    df_grouped_hexcer_change = data.frame(matrix(ncol=length(df_grouped_hexcer),nrow=26, dimnames=list(NULL, colnames(df_grouped_hexcer))))
+    for (i in 1:26) {
+      df_grouped_hexcer_change[i,] = df_grouped_hexcer[2*i,]-df_grouped_hexcer[2*i-1,]
+    }
+    df_grouped_hexcer_baseline = df_grouped_hexcer[-even_row, ]
+    # summary(lm(df_grouped_cer_change$SFA~ft_treatment+df_grouped_cer_baseline$SFA))
+    summary(lm(df_grouped_hexcer_change$MUFA~ft_treatment+df_grouped_hexcer_baseline$MUFA))
+    summary(lm(df_grouped_hexcer_change$PUFA~ft_treatment+df_grouped_hexcer_baseline$PUFA))
+    # summary(lm(df_grouped_cer_change$SFA~ft_apoe4+df_grouped_cer_baseline$SFA))
+    summary(lm(df_grouped_hexcer_change$MUFA~ft_apoe4+df_grouped_hexcer_baseline$MUFA))
+    summary(lm(df_grouped_hexcer_change$PUFA~ft_apoe4+df_grouped_hexcer_baseline$PUFA))
+  }
+  # HexCer in plasma
+  {
+    df_grouped_hexcer_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                    sheet = "HexCer_mean_pla")
+    df_grouped_hexcer_pla = df_grouped_hexcer_pla[,c(8,9)]
+    df_grouped_hexcer_change_pla = data.frame(matrix(ncol=length(df_grouped_hexcer_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_hexcer_pla))))
+    for (i in 1:26) {
+      df_grouped_hexcer_change_pla[i,] = df_grouped_hexcer_pla[2*i,]-df_grouped_hexcer_pla[2*i-1,]
+    }
+    df_grouped_hexcer_baseline_pla = df_grouped_hexcer_pla[-even_row, ]
+    # summary(lm(df_grouped_cer_change_pla$SFA~ft_treatment+df_grouped_cer_baseline_pla$SFA))
+    summary(lm(df_grouped_hexcer_change_pla$MUFA~ft_treatment+df_grouped_hexcer_baseline_pla$MUFA))
+    summary(lm(df_grouped_hexcer_change_pla$PUFA~ft_treatment+df_grouped_hexcer_baseline_pla$PUFA))
+    # summary(lm(df_grouped_cer_change_pla$SFA~ft_apoe4+df_grouped_cer_baseline_pla$SFA))
+    summary(lm(df_grouped_hexcer_change_pla$MUFA~ft_apoe4+df_grouped_hexcer_baseline_pla$MUFA))
+    summary(lm(df_grouped_hexcer_change_pla$PUFA~ft_apoe4+df_grouped_hexcer_baseline_pla$PUFA))
+  }
+  
+  # DG in CSF
+  {
+    df_grouped_dg = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                               sheet = "DG_mean")
+    df_grouped_dg = df_grouped_dg[,c(12,13,14)]
+    df_grouped_dg_change = data.frame(matrix(ncol=length(df_grouped_dg),nrow=26, dimnames=list(NULL, colnames(df_grouped_dg))))
+    for (i in 1:26) {
+      df_grouped_dg_change[i,] = df_grouped_dg[2*i,]-df_grouped_dg[2*i-1,]
+    }
+    df_grouped_dg_baseline = df_grouped_dg[-even_row, ]
+    summary(lm(df_grouped_dg_change$SFA~ft_treatment+df_grouped_dg_baseline$SFA))
+    summary(lm(df_grouped_dg_change$MUFA~ft_treatment+df_grouped_dg_baseline$MUFA))
+    summary(lm(df_grouped_dg_change$PUFA~ft_treatment+df_grouped_dg_baseline$PUFA))
+    summary(lm(df_grouped_dg_change$SFA~ft_apoe4+df_grouped_dg_baseline$SFA))
+    summary(lm(df_grouped_dg_change$MUFA~ft_apoe4+df_grouped_dg_baseline$MUFA))
+    summary(lm(df_grouped_dg_change$PUFA~ft_apoe4+df_grouped_dg_baseline$PUFA))
+  }
+  # PC in plasma
+  {
+    df_grouped_dg_pla = read_excel(file.path(datadir,"new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx"),
+                                   sheet = "DG_mean_pla")
+    df_grouped_dg_pla = df_grouped_dg_pla[,c(12,13,14)]
+    df_grouped_dg_change_pla = data.frame(matrix(ncol=length(df_grouped_dg_pla),nrow=26, dimnames=list(NULL, colnames(df_grouped_dg_pla))))
+    for (i in 1:26) {
+      df_grouped_dg_change_pla[i,] = df_grouped_dg_pla[2*i,]-df_grouped_dg_pla[2*i-1,]
+    }
+    df_grouped_dg_baseline_pla = df_grouped_dg_pla[-even_row, ]
+    summary(lm(df_grouped_dg_change_pla$SFA~ft_treatment+df_grouped_dg_baseline_pla$SFA))
+    summary(lm(df_grouped_dg_change_pla$MUFA~ft_treatment+df_grouped_dg_baseline_pla$MUFA))
+    summary(lm(df_grouped_dg_change_pla$PUFA~ft_treatment+df_grouped_dg_baseline_pla$PUFA))
+    summary(lm(df_grouped_dg_change_pla$SFA~ft_apoe4+df_grouped_dg_baseline_pla$SFA))
+    summary(lm(df_grouped_dg_change_pla$MUFA~ft_apoe4+df_grouped_dg_baseline_pla$MUFA))
+    summary(lm(df_grouped_dg_change_pla$PUFA~ft_apoe4+df_grouped_dg_baseline_pla$PUFA))
+  }
+```
+
+
+
+```{r}
+# network (excel name: CSF_change and Plasma_change)
+  # library("qgraph")
+  {
+    #importing and processing data
+    
+    library("readxl")
+    library("qgraph")
+    library("striprtf")
+    library("readr")
+    library("tidyverse")
+    library("intergraph")
+    library("igraph")
+    library("qgraph")
+    
+    datadir <- c("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/")
+    
+    df_ce_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "CE")
+    df_cer_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "Cer")
+    df_dg_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "DG")
+    df_hexcer_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "HexCer")
+    df_pc_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "PC")
+    df_sm_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "SM")
+    df_tg_csf = read_excel(file.path(datadir, "CSF_change.xlsx"), sheet = "TG")
+    df_csf = cbind(df_ce_csf,df_cer_csf,df_dg_csf,df_hexcer_csf,df_pc_csf,df_sm_csf,df_tg_csf)
+    
+    df_ce_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "CE")
+    df_cer_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "Cer")
+    df_dg_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "DG")
+    df_hexcer_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "HexCer")
+    df_pc_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "PC")
+    df_sm_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "SM")
+    df_tg_pla = read_excel(file.path(datadir, "Plasma_change.xlsx"), sheet = "TG")
+    df_pla = cbind(df_ce_pla,df_cer_pla,df_dg_pla,df_hexcer_pla,df_pc_pla,df_sm_pla,df_tg_pla)
+    
+    colnames(df_csf)==colnames(df_pla)
+  
+    # exclude missing rows
+    df_csf = df_csf[-c(4,12,22,23),]
+    df_pla = df_pla[-c(4,12,22,23),]
+    
+    # select CSF and plasma lipids which are significantly affected by treatment effect (using excel Laila_lm)
+    result_lm_csf = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in CSF")
+    csf_name = result_lm_csf$lipidname
+    df_csf_sig = subset(df_csf, select=csf_name)
+    
+    result_lm_pla = read_excel(file.path(datadir, "Laila_lm.xlsx"), sheet = "treatment in plasma")
+    pla_name = result_lm_pla$lipidname
+    df_pla_sig = subset(df_pla, select = pla_name)
+
+    # add _csf/_pla to column names
+    colnames(df_csf_sig) = paste0(colnames(df_csf_sig), '_csf')
+    colnames(df_pla_sig) = paste0(colnames(df_pla_sig), '_pla')
+    
+    # combine csf and plasma
+    df_all = cbind(df_csf_sig,df_pla_sig)
+    
+    # add change in Plasma LPC DHA to df_all
+    pla_LPC = read_excel(file.path(datadir, "dha.pilot.lipids_CONC_05112021.xlsx"), 
+                         sheet = "dha.pilot.lipids_diff")
+    df_pla_LPC = subset(pla_LPC, select = c("id", "LPC.DHA_pla_diff"))
+    
+    colnames(df_pla_LPC) = c("id","LPC.DHA_pla")
+    
+    df_pla_LPC = na.omit(df_pla_LPC)
+    
+    df_pla_LPC = df_pla_LPC[df_pla_LPC$id %in% df_clinic$id,]
+    
+    df_pla_LPC = df_pla_LPC[-c(4,12,22,23),]
+    
+    df_pla_LPC = df_pla_LPC/100
+    
+    df_all = cbind(df_all, subset(df_pla_LPC, select = LPC.DHA_pla))
+    
+    View(df_all)
+    
+    dim(df_all)
+    
+```
+
+
+```{r}
+
+    #defining objects for use in qgraph function
+    Groups <- c(rep("CSF CE",6),rep("CSF Cer",1),rep("CSF DG",2),rep("CSF PC",8),rep("CSF TG",3),
+                rep("PLA CE",3),rep("PLA Cer",2),rep("PLA DG",2),rep("PLA PC",17),rep("PLA PCO",1),
+                rep("PLA SM",9),rep("PLA TG",9), ("PLA LPC.DHA"))
+    
+    Groups_CSF_PLA <- c(rep("CSF",20),rep("PLA", 44))
+    
+    Shapes <- c(rep("square", 6), rep("circle", 1), rep("circle",2), rep("diamond", 8),rep("triangle",3),
+                rep("square",3),rep("circle",2),rep("circle",2),rep("diamond",17),rep("diamond",1),
+                rep("circle",9),rep("triangle",9), "diamond")
+    
+    Names = read_excel(file.path(datadir, "Names.xlsx"))
+    Names = deframe(Names)
+    
+    # Names <- scan(file.path(datadir, "NAME_SIG.rtf"),what = "character", sep = "\n")
+    # Names = Names[-c(1,2,3,4,5,6,54)]
+    # Names[1] = "CSF CE 18:3\\"
+    # Names[48] = "PLA SM 18:1/16:1\\"
+    # Names = append(Names, "PLA LPC.DHA")
+    # Names = append(Names, "PLA SM 18:1/18:1\\",48)
+    # 
+    # Names = as.data.frame(Names)
+    # write_csv(Names, file.path(datadir,"Names.csv"))
+    # Names <- read.csv(file = file.path(datadir,"Names.csv"))
+    # Names
+    # 
+    
+    
+```
+
+
+```{r}
+
+# correlation matrix
+ corMat = cor(df_all)
+ View(round(corMat,2))
+ dim(corMat)
+ 
+#graph with all data
+
+# first make the graph
+plot_all = qgraph(corMat, graph = "cor",layout= "spring", labels = Names, 
+                  groups = Groups_CSF_PLA, minimum = 0.6, threshold = "sig",
+                  sampleSize = 22)
+
+    # then calculate node size
+    nodesize = 1.02^(centrality(plot_all)$OutDegree + centrality(plot_all)$InDegree) + 0.3
+    nodesize
+    
+    nodesize_2 = (centrality(plot_all)$OutDegree)/10
+
+    # now apply to each node
+    pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/network_all.pdf", width = 80, height = 30)
+           qgraph(corMat, 
+           graph = "cor", 
+           layout = "spring",
+           labels = Names,
+           groups = Groups_CSF_PLA,
+           vsize = 2.3,
+           esize = 3,
+           legend.cex = 3,
+           minimum = 0.6,
+           threshold = "sig",
+           maximum = 1,
+           sampleSize = 22,
+           theme = "classic",
+           borders = FALSE,
+           label.cex = 1.1,
+           shape = Shapes)
+    dev.off()
+```
+
+
+```{r}
+# separate plots CSF & PLA
+    
+    # TG
+    Groups_TG <- c(rep("CSF TG",3),rep("PLA TG",9))
+    keep_TG = c("TG.46.0._csf", "TG.56.7._csf", "TG.56.8._csf",
+                "TG.46.1._pla", "TG.48.2._pla", "TG.50.2._pla",
+                "TG.50.3._pla", "TG.50.4._pla", "TG.52.5._pla",      
+                "TG.56.5._pla", "TG.56.7._pla", "TG.56.8._pla")
+    Names_TG = c("TG(46:0)", "TG(56:7)", "TG(56:8)",
+                 "TG(46:1)", "TG(48:2)", "TG(50:2)","TG(50:3)",
+                 "TG(50:4)", "TG(52:5)", "TG(56:5)", "TG(56:7)",
+                 "TG(56:8)")
+    
+    corMat_TG <-corMat[rownames(corMat) %in% keep_TG, 
+                          colnames(corMat) %in% keep_TG]
+    
+    pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/network_TG.pdf", width = 150, height = 80)
+    qgraph(corMat_TG, 
+           graph = "cor", 
+           layout = "spring",
+           labels = Names_TG,
+           groups = Groups_TG,
+           vsize = 3,
+           esize = 3,
+           threshold = "sig",
+           sampleSize = 22,
+           legend.cex = 7,
+           theme = "classic",
+           borders = FALSE,
+           label.cex = 1)
+    dev.off()
+    
+    # PC
+    Groups_PC <- c(rep("CSF",8),rep("PLA",19))
+    keep_PC = c("PC.36.5_csf", "PC.36.6_csf", "PC.38.6_csf", "PC.40.4_csf",
+                "PC.40.5_csf",  "PC.40.6_csf", "PC.40.7_csf", "PC.40.8_csf",
+                "PC.32.1_pla", "PC.34.2_pla", "PC.34.3_pla", "PC.36.3_pla",
+                "PC.36.4_pla", "PC.36.5_pla", "PC.36.6_pla", "PC.38.3_pla",
+                "PC.38.4_pla", "PC.38.6_pla", "PC.38.7_pla", "PC.40.4_pla",
+                "PC.40.5_pla", "PC.40.6_pla", "PC.40.7_pla", "PC.40.8_pla",
+                "PC.42.5_pla", "PC.O.34.2.1_pla", "LPC.DHA_pla")
+    
+    Names_PC = c("PC(36:5)", "PC(36:6)", "PC(38:6)", "PC(40:4)", "PC(40:5)",
+                 "PC(40:6)", "PC(40:7)", "PC(40:8)", "PC(32:1)",  
+                 "PC(34:2)", "PC(34:3)", "PC(36:3)", "PC(36:4)", "PC(36:5)",
+                 "PC(36:6)", "PC(38:3)", "PC(38:4)", "PC(38:6)", "PC(38:7)",
+                 "PC(40:4)", "PC(40:5)", "PC(40:6)", "PC(40:7)", 
+                 "PC(40:8)", "PC(42:5)", "PCO(34:2/1)", "LPC DHA")
+
+    corMat_PC <- corMat[rownames(corMat) %in% keep_PC, 
+                          colnames(corMat) %in% keep_PC]
+    # create qgraph object
+    plot_PC = qgraph(corMat_PC, 
+           graph = "cor", 
+           layout = "spring",
+           labels = Names_PC,
+           groups = Groups_PC,
+           vsize = 3,
+           esize = 3,
+           threshold = "sig",
+           sampleSize = 22,
+           legend.cex = 4,
+           theme = "classic",
+           borders = FALSE,
+           label.cex = 1)
+    
+    nodesize = 1.15^(centrality(plot_PC)$OutDegree)+0.2
+    nodesize
+    
+    # draw plot using new node sizes
+    pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/network_PC.pdf", width = 150, height = 80)
+    qgraph(corMat_PC, 
+           graph = "cor", 
+           layout = "spring",
+           labels = Names_PC,
+           groups = Groups_PC,
+           vsize = 3,
+           esize = 3,
+           threshold = "sig",
+           legend.cex = 4,
+           sampleSize = 22,
+           label.cex = 1,
+           theme = "classic",
+           borders = FALSE)
+    dev.off()
+    
+    #CE
+    Groups_CE <- c(rep("CSF CE",6),rep("PLA CE",3))
+    keep_CE = c("CE.18.3._csf", "CE.20.4._csf", "CE.20.5._csf",
+                "CE.22.4._csf", "CE.22.5._csf", "CE.22.6._csf",
+                "CE.20.5._pla", "CE.22.5._pla", "CE.22.6._pla")
+    
+    corMat_CE <- corMat[rownames(corMat) %in% keep_CE, 
+                        colnames(corMat) %in% keep_CE]
+    
+    Names_CE = c("CE(18:3)", "CE(20:4)", "CE(20:5)", "CE(22:4)",
+                 "CE(22:5)", "CE(22:6)", "CE(20:5)", "CE(22:5)" ,
+                 "CE(22:6)")
+
+    pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/plot_CE2.pdf", width = 150, height = 80)
+    qgraph(corMat_CE, 
+           graph = "cor", 
+           layout = "spring",
+           labels = Names_CE,
+           groups = Groups_CE,
+           vsize = 5,
+           esize = 3,
+           threshold = "sig",
+           sampleSize = 22,
+           legend.cex = 6,
+           theme = "classic",
+           borders = FALSE,
+           label.cex = 1)
+    dev.off()
+
+  }
+}
+```
+
+
+```{r echo=TRUE}
+# add ERC with CE 22:6
+{
+  df_erc = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Merged__DHAPilotdata03042020__WideFormat_Mean_afterCV_AD Clinical Data_V1.xlsx")
+  df_erc = as.tibble(df_erc)
+  View(df_ce_change)
+  df_erc_ce=data.frame("ID"= df_erc$id,
+                       "rand_tx"= factor(df_erc$rand_tx, levels = c(0,1), labels = c("Placebo", "DHA")),
+                       "apoe4"=factor(df_erc$apoe4, levels = c(0,1), labels = c("non-E4", "E4")),
+                       "ERC_c"= df_erc$mean_entorhil_thickavg_c,
+                       "bmi" = df_erc$bmi,
+                       "gender" = df_erc$gender,
+                       "CE22_6_csf_c"= df_ce_change$CE.22.6.,
+                       "CE22_6_pla_c"= df_ce_change_pla$CE.22.6.)
+  
+  summary(lm(ERC_c ~ CE22_6_csf_c + apoe4, data = df_erc_ce))
+  summary(lm(ERC_c ~ CE22_6_pla_c + apoe4, data = df_erc_ce))
+  
+  
+  ggplot(df_erc_ce, aes(x=CE22_6_csf_c, y=ERC_c)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of CSF CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    theme_bw()
+
+```
+
+
+```{r echo=TRUE}
+summary(lm(ERC_c ~ CE22_6_csf_c * apoe4, data = df_erc_ce))
+report(lm(ERC_c ~ CE22_6_csf_c * apoe4, data = df_erc_ce))
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/erc_csf_ce.pdf", width = 4.6, height = 4.6)
+  ggplot(df_erc_ce, aes(x=CE22_6_csf_c, y=ERC_c, colour = apoe4)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of CSF CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    labs(colour = "ApoE4") +
+    theme_bw()
+dev.off()
+
+```
+
+```{r}
+summary(lm(ERC_c ~ CE22_6_csf_c * rand_tx, data = df_erc_ce))
+  ggplot(df_erc_ce, aes(x=CE22_6_csf_c, y=ERC_c, colour = rand_tx)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of CSF CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    labs(colour = "Treatment") +
+    theme_bw()
+  
+  summary(lm(ERC_c ~ CE22_6_pla_c, data = df_erc_ce))
+  ggplot(df_erc_ce, aes(x=CE22_6_pla_c, y=ERC_c)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    theme_bw()
+  summary(lm(ERC_c ~ CE22_6_pla_c * apoe4, data = df_erc_ce))
+  
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/erc_change_of_pla_ce_.pdf", width = 4.5, height = 4.5)
+  ggplot(df_erc_ce, aes(x=CE22_6_pla_c, y=ERC_c, colour = apoe4)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    labs(colour = "ApoE4") +
+    stat_cor(method = "pearson") +
+    theme_bw()
+  dev.off()
+  
+# same thing as above but X axis is SD standardized, figure 5c
+sd(df_erc_ce$CE22_6_pla_c, na.rm = TRUE)
+sd_CE22_6_pla_c = df_erc_ce$CE22_6_pla_c/sd(df_erc_ce$CE22_6_pla_c, na.rm = TRUE)
+df_erc_ce = cbind(df_erc_ce, sd_CE22_6_pla_c)
+View(df_erc_ce)
+
+  pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/erc_change_of_pla_ce_SD.pdf", width = 4.5, height = 4.5)
+  ggplot(df_erc_ce, aes(x=sd_CE22_6_pla_c, y=ERC_c, colour = apoe4)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma CE 22:6 (SD standardized)") +
+    ylab("Change of Entorhinal Cortex (mm)") +
+    labs(colour = "ApoE4") +
+    stat_cor(method = "pearson") +
+    theme_bw()
+  dev.off()
+  
+  summary(lm(ERC_c ~ CE22_6_pla_c * rand_tx, data = df_erc_ce))
+  ggplot(df_erc_ce, aes(x=CE22_6_pla_c, y=ERC_c, colour = rand_tx)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma CE 22:6") +
+    ylab("Change of Entorhinal Cortex") +
+    labs(colour = "Treatment") +
+    theme_bw()
+  View(df_erc_ce)
+  
+
+# devide bmi into two groups >30 high bmi, <30 low bmi
+df_erc$bmi_cat = ifelse(df_erc$bmi > 30, 1, 0)
+df_erc_ce$bmi_cat = ifelse(df_erc_ce$bmi > 30, 1, 0)
+
+# draw boxplot with dots showing change of entorhinal cortex thickness vs treatment
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/erc_c_treat.pdf", width = 5, height = 5)
+ggplot(df_erc,aes(y = mean_entorhil_thickavg_c, x = as.factor(rand_tx), fill = as.factor(apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Entorhinal Cortex") +
+  scale_fill_discrete(name = "Apoe4", labels = c("E4 -", "E4 +")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA")) + 
+  stat_compare_means()
+dev.off()
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/figures/erc_c_treat_1.pdf", width = 5, height = 5)
+ggplot(df_erc,aes(y = mean_entorhil_thickavg_c, x = as.factor(rand_tx), fill = as.factor(rand_tx))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(rand_tx))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Entorhinal Cortex") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+# now run anova with treatment, apoe4, gender and bmi
+model = aov(ERC_c ~ rand_tx + apoe4 + gender + bmi, df_erc_ce)
+report(model)
+summary(model)
+
+model = lm(ERC_c ~ rand_tx + apoe4 + gender + bmi_cat, df_erc_ce)
+report(model)
+summary(model)
+
+model = lm(ERC_c ~ rand_tx + apoe4, df_erc_ce)
+report(model)
+summary(model)
+
+model = lm(ERC_c ~ rand_tx, df_erc_ce)
+report(model)
+summary(model)
+}
+```
+
+```{r}
+# Recreate Victoria Change in ERC and Change in PC DHA (SD Standarized) figure 5B
+  df_Vic_dhapilot <- read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/dha.pilot.lipids_CONC_05112021.xlsx",
+                                sheet = "dha.pilot.lipids")
+  df_Vic_dhapilot$rand_tx = factor(df_Vic_dhapilot$rand_tx, levels = c(0,1),
+                                   labels = c("Placebo", "DHA"))
+  df_Vic_dhapilot$apoe4 = factor(df_Vic_dhapilot$apoe4, levels = c(0,1),
+                                 labels = c("Non E4", "E4"))
+
+# SD Plasma PC DHA
+sd(df_Vic_dhapilot$PC.DHA.all_pla_diff, na.rm = TRUE)
+pc_dha_plas_ch_sd = df_Vic_dhapilot$PC.DHA.all_pla_diff/sd(df_Vic_dhapilot$PC.DHA.all_pla_diff, na.rm = TRUE)
+df_Vic_dhapilot = cbind(df_Vic_dhapilot, pc_dha_plas_ch_sd)
+
+summary(lm(df_Vic_dhapilot$mean_entorhil_thickavg_c~df_Vic_dhapilot$pc_dha_plas_ch_sd))
+summary(lm(df_Vic_dhapilot$mean_entorhil_thickavg_c~df_Vic_dhapilot$pc_dha_plas_ch_sd + df_Vic_dhapilot$apoe4))
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/ERC_PC.DHA.SD.pdf", width = 5, height = 5)
+
+ggplot(df_Vic_dhapilot, aes(x=pc_dha_plas_ch_sd, y=mean_entorhil_thickavg_c, colour = apoe4)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+  guides(fill = FALSE) +
+  xlab("Change of PC DHA in Plasma (SD standardized)") +
+  ylab("Change of Entorhinal Cortex") +
+  labs(colour = "ApoE4") +
+  stat_cor(method = "pearson") +
+  theme_bw()
+
+dev.off()
+```
+
+```{r}
+#*** NEW FIG 5D(originally 6D), LPC DHA and ERC
+df_erc_ce = cbind(df_erc_ce,df_pla_LPC$LPC.DHA_pla)
+colnames(df_erc_ce)[9] = "LPC_DHA_pla"
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/erc_LPC_DHA.pdf", width = 4.6, height = 4.6)
+  ggplot(df_erc_ce, aes(x=LPC_DHA_pla, y=ERC_c, colour = apoe4)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma LPC DHA") +
+    ylab("Change of Entorhinal Cortex") +
+    stat_cor(method = "pearson") +
+    labs(colour = "ApoE4") +
+    theme_bw()
+dev.off()
+
+# New Fig5D, SD standardized LPC DHA
+sd(df_erc_ce$LPC_DHA_pla, na.rm = TRUE)
+sd_LPC_DHA_pla = df_erc_ce$LPC_DHA_pla/sd(df_erc_ce$LPC_DHA_pla, na.rm = TRUE)
+df_erc_ce = cbind(df_erc_ce, sd_LPC_DHA_pla)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/erc_LPC_DHA_SD.pdf", width = 4.6, height = 4.6)
+  ggplot(df_erc_ce, aes(x=sd_LPC_DHA_pla, y=ERC_c, colour = apoe4)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE, fullrange=TRUE) +
+    guides(fill = FALSE) +
+    xlab("Change of Plasma LPC DHA (SD standardized)") +
+    ylab("Change of Entorhinal Cortex (mm)") +
+    stat_cor(method = "pearson") +
+    labs(colour = "ApoE4") +
+    theme_bw()
+dev.off()
+```
+
+
+```{r}
+# omega3/omega6/both
+{
+  # CE
+  { 
+    CE_omega3_csf = rowSums(df_ce_change[ , c("CE.18.3.", "CE.20.2.", "CE.20.5.", "CE.22.5.", "CE.22.6.")]) 
+    CE_omega6_csf = rowSums(df_ce_change[ , c("CE.15.1.", "CE.18.2.", "CE.20.3.", "CE.20.4.", "CE.22.4.")]) 
+    
+    df_ce_ab = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "CE_mean")
+    df_ce_baseline = df_ce_ab[-even_row, ]
+    df_ce_baseline = df_ce_baseline[,-1]
+    CE_omega3_csf_a = rowSums(df_ce_baseline[ , c("CE.18.3.", "CE.20.2.", "CE.20.5.", "CE.22.5.", "CE.22.6.")]) 
+    CE_omega6_csf_a = rowSums(df_ce_baseline[ , c("CE.15.1.", "CE.18.2.", "CE.20.3.", "CE.20.4.", "CE.22.4.")]) 
+    
+    summary(lm(CE_omega3_csf~ft_treatment+CE_omega3_csf_a))
+    summary(lm(CE_omega3_csf~ft_apoe4+CE_omega3_csf_a))
+    summary(lm(CE_omega6_csf~ft_treatment+CE_omega6_csf_a))
+    summary(lm(CE_omega6_csf~ft_apoe4+CE_omega6_csf_a))
+    
+    CE_omega3_pla = rowSums(df_ce_change_pla[ , c("CE.18.3.", "CE.20.2.", "CE.20.5.", "CE.22.5.", "CE.22.6.")]) 
+    CE_omega6_pla = rowSums(df_ce_change_pla[ , c("CE.15.1.", "CE.18.2.", "CE.20.3.", "CE.20.4.", "CE.22.4.")]) 
+    df_ce_ab_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "CE_mean_pla")
+    df_ce_baseline_pla = df_ce_ab_pla[-even_row, ]
+    df_ce_baseline_pla = df_ce_baseline_pla[,-1]
+    CE_omega3_pla_a = rowSums(df_ce_baseline_pla[ , c("CE.18.3.", "CE.20.2.", "CE.20.5.", "CE.22.5.", "CE.22.6.")]) 
+    CE_omega6_pla_a = rowSums(df_ce_baseline_pla[ , c("CE.15.1.", "CE.18.2.", "CE.20.3.", "CE.20.4.", "CE.22.4.")]) 
+    
+    summary(lm(CE_omega3_pla~ft_treatment+CE_omega3_pla_a))
+    summary(lm(CE_omega3_pla~ft_apoe4+CE_omega3_pla_a))
+    summary(lm(CE_omega6_pla~ft_treatment+CE_omega6_pla_a))
+    summary(lm(CE_omega6_pla~ft_apoe4+CE_omega6_pla_a))
+  }  
+  # DG
+  {
+    DG_omega6_csf = rowSums(df_dg_change[ , c("X1.2.DG.32.1.", "X1.2.DG.34.2.", "X1.2.DG.36.1.")]) 
+    DG_both_csf = rowSums(df_dg_change[ , c("X1.2.DG.36.3.", "X1.2.DG.36.4.", "X1.2.DG.38.4.", "X1.2.DG.38.5.")]) 
+    
+    df_dg_ab = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "DG_mean")
+    df_dg_baseline = df_dg_ab[-even_row, ]
+    df_dg_baseline = df_dg_baseline[,-1]
+    DG_omega6_csf_a = rowSums(df_dg_baseline[ , c("X1.2.DG.32.1.", "X1.2.DG.34.2.", "X1.2.DG.36.1.")]) 
+    DG_both_csf_a = rowSums(df_dg_baseline[ , c("X1.2.DG.36.3.", "X1.2.DG.36.4.", "X1.2.DG.38.4.", "X1.2.DG.38.5.")]) 
+    
+    summary(lm(DG_omega6_csf~ft_treatment+DG_omega6_csf_a))
+    summary(lm(DG_omega6_csf~ft_apoe4+DG_omega6_csf_a))
+    summary(lm(DG_both_csf~ft_treatment+DG_both_csf_a))
+    summary(lm(DG_both_csf~ft_apoe4+DG_both_csf_a))
+    
+    DG_omega6_pla = rowSums(df_dg_change_pla[ , c("X1.2.DG.32.1.", "X1.2.DG.34.2.", "X1.2.DG.36.1.")]) 
+    DG_both_pla = rowSums(df_dg_change_pla[ , c("X1.2.DG.36.3.", "X1.2.DG.36.4.", "X1.2.DG.38.4.", "X1.2.DG.38.5.")]) 
+    
+    df_dg_ab_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "DG_mean_pla")
+    df_dg_baseline_pla = df_dg_ab_pla[-even_row, ]
+    df_dg_baseline_pla = df_dg_baseline_pla[,-1]
+    DG_omega6_pla_a = rowSums(df_dg_baseline_pla[ , c("X1.2.DG.32.1.", "X1.2.DG.34.2.", "X1.2.DG.36.1.")]) 
+    DG_both_pla_a = rowSums(df_dg_baseline_pla[ , c("X1.2.DG.36.3.", "X1.2.DG.36.4.", "X1.2.DG.38.4.", "X1.2.DG.38.5.")]) 
+    
+    summary(lm(DG_omega6_pla~ft_treatment+DG_omega6_pla_a))
+    summary(lm(DG_omega6_pla~ft_apoe4+DG_omega6_pla_a))
+    summary(lm(DG_both_pla~ft_treatment+DG_both_pla_a))
+    summary(lm(DG_both_pla~ft_apoe4+DG_both_pla_a))
+  }
+  # PC
+  { 
+    PC_omega6_csf = rowSums(df_pc_change[ , c("PC.30.1", "PC.32.1", "PC.32.2", "PC.34.1", "PC.34.2",
+                                              "PC.36.1", "PC.38.1", "PC.40.2", "PC.42.2", "PC.42.3", "PC.44.4", "PC.O.34.2.1")]) 
+    PC_both_csf = rowSums(df_pc_change[ , c("PC.34.3", "PC.34.4", "PC.36.2", "PC.36.3", "PC.36.4", "PC.36.5", "PC.36.6",
+                                            "PC.38.3", "PC.38.4", "PC.38.5", "PC.38.6", "PC.38.7", "PC.40.3", "PC.40.4", "PC.40.5",
+                                            "PC.40.6", "PC.40.7", "PC.40.8", "PC.42.4", "PC.42.5", "PC.42.6", "PC.O.38.4.1")]) 
+    
+    df_pc_ab = read_excel("/Users/xuleihe/Desktop/Project_2021/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "PC_mean")
+    df_pc_baseline = df_pc_ab[-even_row, ]
+    df_pc_baseline = df_pc_baseline[,-1]
+    PC_omega6_csf_a = rowSums(df_pc_baseline[ , c("PC.30.1", "PC.32.1", "PC.32.2", "PC.34.1", "PC.34.2",
+                                                   "PC.36.1", "PC.38.1", "PC.40.2", "PC.42.2", "PC.42.3", "PC.44.4", "PC.O.34.2.1")]) 
+    PC_both_csf_a = rowSums(df_pc_baseline[ , c("PC.34.3", "PC.34.4", "PC.36.2", "PC.36.3", "PC.36.4", "PC.36.5", "PC.36.6",
+                                                "PC.38.3", "PC.38.4", "PC.38.5", "PC.38.6", "PC.38.7", "PC.40.3", "PC.40.4", "PC.40.5",
+                                                "PC.40.6", "PC.40.7", "PC.40.8", "PC.42.4", "PC.42.5", "PC.42.6", "PC.O.38.4.1")]) 
+    
+    summary(lm(PC_omega6_csf~ft_treatment+PC_omega6_csf_a))
+    summary(lm(PC_omega6_csf~ft_apoe4+PC_omega6_csf_a))
+    summary(lm(PC_both_csf~ft_treatment+PC_both_csf_a))
+    summary(lm(PC_both_csf~ft_apoe4+PC_both_csf_a))
+    
+    PC_omega6_pla = rowSums(df_pc_change_pla[ , c("PC.30.1", "PC.32.1", "PC.32.2", "PC.34.1", "PC.34.2",
+                                              "PC.36.1", "PC.38.1", "PC.40.2", "PC.42.2", "PC.42.3", "PC.44.4", "PC.O.34.2.1")]) 
+    PC_both_pla = rowSums(df_pc_change_pla[ , c("PC.34.3", "PC.34.4", "PC.36.2", "PC.36.3", "PC.36.4", "PC.36.5", "PC.36.6",
+                                            "PC.38.3", "PC.38.4", "PC.38.5", "PC.38.6", "PC.38.7", "PC.40.3", "PC.40.4", "PC.40.5",
+                                            "PC.40.6", "PC.40.7", "PC.40.8", "PC.42.4", "PC.42.5", "PC.42.6", "PC.O.38.4.1")]) 
+    
+    df_pc_ab_pla = read_excel("/Users/xuleihe/Desktop/Project_2021/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "PC_mean_pla")
+    df_pc_baseline_pla = df_pc_ab_pla[-even_row, ]
+    df_pc_baseline_pla = df_pc_baseline_pla[,-1]
+    PC_omega6_pla_a = rowSums(df_pc_baseline_pla[ , c("PC.30.1", "PC.32.1", "PC.32.2", "PC.34.1", "PC.34.2",
+                                                  "PC.36.1", "PC.38.1", "PC.40.2", "PC.42.2", "PC.42.3", "PC.44.4", "PC.O.34.2.1")]) 
+    PC_both_pla_a = rowSums(df_pc_baseline_pla[ , c("PC.34.3", "PC.34.4", "PC.36.2", "PC.36.3", "PC.36.4", "PC.36.5", "PC.36.6",
+                                                "PC.38.3", "PC.38.4", "PC.38.5", "PC.38.6", "PC.38.7", "PC.40.3", "PC.40.4", "PC.40.5",
+                                                "PC.40.6", "PC.40.7", "PC.40.8", "PC.42.4", "PC.42.5", "PC.42.6", "PC.O.38.4.1")]) 
+    
+    summary(lm(PC_omega6_pla~ft_treatment+PC_omega6_pla_a))
+    summary(lm(PC_omega6_pla~ft_apoe4+PC_omega6_pla_a))
+    summary(lm(PC_both_pla~ft_treatment+PC_both_pla_a))
+    summary(lm(PC_both_pla~ft_apoe4+PC_both_pla_a))
+  }  
+  # TG
+  { 
+    TG_omega6_csf = rowSums(df_tg_change[ , c("TG.46.1.", "TG.48.1.", "TG.48.2.", "TG.50.1.", "TG.50.2.", "TG.52.2.")]) 
+    TG_both_csf = rowSums(df_tg_change[ , c("TG.50.3.", "TG.50.4.", "TG.50.5.", "TG.52.1.", "TG.52.3.", "TG.52.4.", "TG.52.5.",
+                                            "TG.52.6.", "TG.53.3.", "TG.54.2.", "TG.54.3.", "TG.54.4.", "TG.54.5.", "TG.54.6.",
+                                            "TG.54.7.", "TG.56.4.", "TG.56.5.", "TG.56.6.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    
+    df_tg_ab = read_excel("/Users/xuleihe/Desktop/Project_2021/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "TG_mean")
+    df_tg_baseline = df_tg_ab[-even_row, ]
+    df_tg_baseline = df_tg_baseline[,-1]
+    TG_omega6_csf_a = rowSums(df_tg_baseline[ , c("TG.46.1.", "TG.48.1.", "TG.48.2.", "TG.50.1.", "TG.50.2.", "TG.52.2.")]) 
+    TG_both_csf_a = rowSums(df_tg_baseline[ , c("TG.50.3.", "TG.50.4.", "TG.50.5.", "TG.52.1.", "TG.52.3.", "TG.52.4.", "TG.52.5.",
+                                                "TG.52.6.", "TG.53.3.", "TG.54.2.", "TG.54.3.", "TG.54.4.", "TG.54.5.", "TG.54.6.",
+                                                "TG.54.7.", "TG.56.4.", "TG.56.5.", "TG.56.6.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    
+    summary(lm(TG_omega6_csf~ft_treatment+TG_omega6_csf_a))
+    summary(lm(TG_omega6_csf~ft_apoe4+TG_omega6_csf_a))
+    summary(lm(TG_both_csf~ft_treatment+TG_both_csf_a))
+    summary(lm(TG_both_csf~ft_apoe4+TG_both_csf_a))
+    
+    TG_omega6_pla = rowSums(df_tg_change_pla[ , c("TG.46.1.", "TG.48.1.", "TG.48.2.", "TG.50.1.", "TG.50.2.", "TG.52.2.")]) 
+    TG_both_pla = rowSums(df_tg_change_pla[ , c("TG.50.3.", "TG.50.4.", "TG.50.5.", "TG.52.1.", "TG.52.3.", "TG.52.4.", "TG.52.5.",
+                                            "TG.52.6.", "TG.53.3.", "TG.54.2.", "TG.54.3.", "TG.54.4.", "TG.54.5.", "TG.54.6.",
+                                            "TG.54.7.", "TG.56.4.", "TG.56.5.", "TG.56.6.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    
+    df_tg_ab_pla = read_excel("/Users/xuleihe/Desktop/Project_2021/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "TG_mean_pla")
+    df_tg_baseline_pla = df_tg_ab_pla[-even_row, ]
+    df_tg_baseline_pla = df_tg_baseline_pla[,-1]
+    TG_omega6_pla_a = rowSums(df_tg_baseline_pla[ , c("TG.46.1.", "TG.48.1.", "TG.48.2.", "TG.50.1.", "TG.50.2.", "TG.52.2.")]) 
+    TG_both_pla_a = rowSums(df_tg_baseline_pla[ , c("TG.50.3.", "TG.50.4.", "TG.50.5.", "TG.52.1.", "TG.52.3.", "TG.52.4.", "TG.52.5.",
+                                                "TG.52.6.", "TG.53.3.", "TG.54.2.", "TG.54.3.", "TG.54.4.", "TG.54.5.", "TG.54.6.",
+                                                "TG.54.7.", "TG.56.4.", "TG.56.5.", "TG.56.6.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    
+    summary(lm(TG_omega6_pla~ft_treatment+TG_omega6_pla_a))
+    summary(lm(TG_omega6_pla~ft_apoe4+TG_omega6_pla_a))
+    summary(lm(TG_both_pla~ft_treatment+TG_both_pla_a))
+    summary(lm(TG_both_pla~ft_apoe4+TG_both_pla_a))
+  }  
+}
+
+```
+
+## Use MS/MS Data for New Fatty Acids Categorization ARA/DHA Grouped Lipids Analysis
+```{r}
+# CE
+
+    CE_omega3_csf = rowSums(df_ce_change[ , c("CE.22.6.")]) 
+    CE_omega6_csf = rowSums(df_ce_change[ , c("CE.20.4.")]) 
+    
+    df_ce_ab = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "CE_mean")
+    df_ce_baseline = df_ce_ab[-even_row, ]
+    df_ce_baseline = df_ce_baseline[,-1]
+    CE_omega3_csf_a = rowSums(df_ce_baseline[ , c("CE.22.6.")]) 
+    CE_omega6_csf_a = rowSums(df_ce_baseline[ , c("CE.20.4.")]) 
+    
+    summary(lm(CE_omega3_csf~ft_treatment+CE_omega3_csf_a))
+    summary(lm(CE_omega3_csf~ft_apoe4+CE_omega3_csf_a))
+    summary(lm(CE_omega6_csf~ft_treatment+CE_omega6_csf_a))
+    summary(lm(CE_omega6_csf~ft_apoe4+CE_omega6_csf_a))
+    
+    CE_omega3_pla = rowSums(df_ce_change_pla[ , c("CE.22.6.")]) 
+    CE_omega6_pla = rowSums(df_ce_change_pla[ , c("CE.20.4.")]) 
+    df_ce_ab_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx", sheet = "CE_mean_pla")
+    df_ce_baseline_pla = df_ce_ab_pla[-even_row, ]
+    df_ce_baseline_pla = df_ce_baseline_pla[,-1]
+    CE_omega3_pla_a = rowSums(df_ce_baseline_pla[ , c("CE.22.6.")]) 
+    CE_omega6_pla_a = rowSums(df_ce_baseline_pla[ , c("CE.20.4.")]) 
+    
+    summary(lm(CE_omega3_pla~ft_treatment+CE_omega3_pla_a))
+    summary(lm(CE_omega3_pla~ft_apoe4+CE_omega3_pla_a))
+    summary(lm(CE_omega6_pla~ft_treatment+CE_omega6_pla_a))
+    summary(lm(CE_omega6_pla~ft_apoe4+CE_omega6_pla_a))
+
+# Now add interaction models
+    report(lm(CE_omega3_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + CE_omega3_csf_a))
+    report(lm(CE_omega6_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + CE_omega6_csf_a))
+    report(lm(CE_omega3_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + CE_omega3_pla_a))
+    report(lm(CE_omega6_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + CE_omega6_pla_a))
+
+```
+
+```{r}
+# PC
+
+    PC_omega3_csf = rowSums(df_pc_change[ , c("PC.36.6", "PC.38.6", "PC.40.8", "PC.40.7", "PC.40.6")]) 
+    PC_omega6_csf = rowSums(df_pc_change[ , c("PC.34.4", "PC.36.4", "PC.38.4", "PC.38.5")]) 
+    
+    df_pc_ab = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "PC_mean")
+    df_pc_baseline = df_pc_ab[-even_row, ]
+    df_pc_baseline = df_pc_baseline[,-1]
+    PC_omega3_csf_a = rowSums(df_pc_baseline[ , c("PC.36.6", "PC.38.6", "PC.40.8", "PC.40.7", "PC.40.6")]) 
+    PC_omega6_csf_a = rowSums(df_pc_baseline[ , c("PC.34.4", "PC.36.4", "PC.38.4", "PC.38.5")]) 
+    
+    summary(lm(PC_omega3_csf~ft_treatment+PC_omega3_csf_a))
+    summary(lm(PC_omega3_csf~ft_apoe4+PC_omega3_csf_a))
+    summary(lm(PC_omega6_csf~ft_treatment+PC_omega6_csf_a))
+    summary(lm(PC_omega6_csf~ft_apoe4+PC_omega6_csf_a))
+    
+    PC_omega3_pla = rowSums(df_pc_change_pla[ , c("PC.36.6", "PC.38.6", "PC.40.8", "PC.40.7", "PC.40.6")]) 
+    PC_omega6_pla = rowSums(df_pc_change_pla[ , c("PC.34.4", "PC.36.4", "PC.38.4", "PC.38.5")]) 
+    
+    df_pc_ab_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "PC_mean_pla")
+    df_pc_baseline_pla = df_pc_ab_pla[-even_row, ]
+    df_pc_baseline_pla = df_pc_baseline_pla[,-1]
+    PC_omega3_pla_a = rowSums(df_pc_baseline_pla[ , c("PC.36.6", "PC.38.6", "PC.40.8", "PC.40.7", "PC.40.6")]) 
+    PC_omega6_pla_a = rowSums(df_pc_baseline_pla[ , c("PC.34.4", "PC.36.4", "PC.38.4", "PC.38.5")]) 
+    
+    summary(lm(PC_omega3_pla~ft_treatment+PC_omega3_pla_a))
+    summary(lm(PC_omega3_pla~ft_apoe4+PC_omega3_pla_a))
+    summary(lm(PC_omega6_pla~ft_treatment+PC_omega6_pla_a))
+    summary(lm(PC_omega6_pla~ft_apoe4+PC_omega6_pla_a))
+    
+    # Now add interaction models
+    report(lm(PC_omega3_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + PC_omega3_csf_a))
+    report(lm(PC_omega6_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + PC_omega6_csf_a))
+    report(lm(PC_omega3_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + PC_omega3_pla_a))
+    report(lm(PC_omega6_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + PC_omega6_pla_a))
+```
+
+```{r}
+# TG
+  
+    TG_omega3_csf = rowSums(df_tg_change[ , c("TG.52.6.", "TG.54.6.", "TG.54.7.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    TG_omega6_csf = rowSums(df_tg_change[ , c("TG.54.6.", "TG.56.5.")]) 
+    
+    df_tg_ab = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "TG_mean")
+    df_tg_baseline = df_tg_ab[-even_row, ]
+    df_tg_baseline = df_tg_baseline[,-1]
+    TG_omega3_csf_a = rowSums(df_tg_baseline[ , c("TG.52.6.", "TG.54.6.", "TG.54.7.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    TG_omega6_csf_a = rowSums(df_tg_baseline[ , c("TG.54.6.", "TG.56.5.")]) 
+    
+    summary(lm(TG_omega3_csf~ft_treatment+TG_omega3_csf_a))
+    summary(lm(TG_omega3_csf~ft_apoe4+TG_omega3_csf_a))
+    summary(lm(TG_omega6_csf~ft_treatment+TG_omega6_csf_a))
+    summary(lm(TG_omega6_csf~ft_apoe4+TG_omega6_csf_a))
+    
+    TG_omega3_pla = rowSums(df_tg_change_pla[ , c("TG.52.6.", "TG.54.6.", "TG.54.7.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    TG_omega6_pla = rowSums(df_tg_change_pla[ , c("TG.54.6.", "TG.56.5.")]) 
+    
+    df_tg_ab_pla = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/new_AD Clinical CSF_plasma Classes Summary_mean_12.xlsx",
+                          sheet = "TG_mean_pla")
+    df_tg_baseline_pla = df_tg_ab_pla[-even_row, ]
+    df_tg_baseline_pla = df_tg_baseline_pla[,-1]
+    TG_omega3_pla_a = rowSums(df_tg_baseline_pla[ , c("TG.52.6.", "TG.54.6.", "TG.54.7.", "TG.56.7.", "TG.56.8.", "TG.58.7.")]) 
+    TG_omega6_pla_a = rowSums(df_tg_baseline_pla[ , c("TG.54.6.", "TG.56.5.")]) 
+    
+    summary(lm(TG_omega3_pla~ft_treatment+TG_omega3_pla_a))
+    summary(lm(TG_omega3_pla~ft_apoe4+TG_omega3_pla_a))
+    summary(lm(TG_omega6_pla~ft_treatment+TG_omega6_pla_a))
+    summary(lm(TG_omega6_pla~ft_apoe4+TG_omega6_pla_a))
+    
+     # Now add interaction models
+    report(lm(TG_omega3_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + TG_omega3_csf_a))
+    report(lm(TG_omega6_csf~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + TG_omega6_csf_a))
+    report(lm(TG_omega3_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + TG_omega3_pla_a))
+    report(lm(TG_omega6_pla~ft_treatment + ft_apoe4 + ft_treatment*ft_apoe4 + TG_omega6_pla_a))
+```
+
+```{r}
+# make summary table but exclude ID's 1466, 1521, 1583, 1584 (lacking plasma lipid follow up data )
+# load data 
+df_22 = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/DHA Pilot Lipid_Laila/data/Merged__DHAPilotdata03042020__WideFormat_Mean_afterCV_AD Clinical Data_V1.xlsx", sheet = "Merged by Matching IDs")
+View(df_22)
+
+# now exclude ID's 1466, 1521, 1583, 1584
+df_22 = subset(df_22, id != 1466 & id != 1521 & id != 1583 & id != 1584)
+
+median(df_22$agerand)
+IQR(df_22$educ)
+
+# define output directory
+dir = c("/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images")
+
+df_22$apoe4 = factor(df_22$apoe4,
+levels = c(0,1),
+labels = c("Non-carriers", "Carriers"))
+
+df_22$rand_tx = factor(df_22$rand_tx,
+levels = c(0,1),
+labels = c("Placebo", "DHA"))
+
+df_22$gender = factor(df_22$gender,
+levels = c("female", "male"),
+labels = c("Female", "Male"))
+
+df_22$race_hispanic = factor(df_22$race_hispanic,
+levels = c("other","asian", "white", "black", "hispanic"),
+labels = c("Other", "Asian", "White", "Black", "Hispanic"))
+
+df_22$educ = as.numeric(df_22$educ)
+
+# make summary table
+tbl = df_22 %>% 
+  select (agerand, gender, race_hispanic, educ, bmi, cdr, apoe4, rand_tx) %>% 
+  tbl_summary (by = rand_tx, missing="no", statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} / {N} ({p}%)"), type = list(educ ~ "continuous"), digits = all_continuous() ~ 2, label = list(agerand ~ "Age (years)", gender ~ "Gender", race_hispanic ~ "Race", educ ~ "Education (years)", bmi ~ "BMI", cdr ~ "CDR", apoe4 ~ "ApoE4")) %>% add_stat_label() %>%
+  add_p() %>% add_n() %>% modify_header(label = "**Variable**") %>% as_gt() %>% gt::tab_source_note(gt::md("***4 subjects from the original 26 were excluded due to missing follow-up plasma lipid data**"))
+
+theme_gtsummary_journal(journal = "jama")
+theme_gtsummary_compact()
+
+tbl%>% gt::gtsave("summ_22.html", path = dir)
+```
+
+```{r}
+# Fig 1A
+# change of csf pc(38:6)
+View(ft_treatment)
+# first make a mini data frame for csf pc(38:6) and treatment
+mini = cbind(csf_PC_change$PC.38.6, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_pc_386.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF PC(38:6)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("PC(38:6)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf pc(40:6)
+# first make a mini data frame for csf pc(40:6) and treatment
+mini = cbind(csf_PC_change$PC.40.6, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_pc_406.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF PC(40:6)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("PC(40:6)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf pc(36:5)
+# first make a mini data frame for csf pc(36:5) and treatment
+mini = cbind(csf_PC_change$PC.36.5, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_pc_365.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF PC(36:5)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("PC(36:5)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf pc(40:7)
+# first make a mini data frame for csf pc(40:7) and treatment
+mini = cbind(csf_PC_change$PC.40.7, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_pc_407.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF PC(40:7)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("PC(40:7)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf pc(36:6)
+# first make a mini data frame for csf pc(36:6) and treatment
+mini = cbind(csf_PC_change$PC.36.6, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_pc_366.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF PC(36:6)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("PC(36:6)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf ce(22:6)
+# first make a mini data frame for csf ce(22:6) and treatment
+mini = cbind(csf_CE_change$CE.22.6., ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_ce_226.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF CE(22:6)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("CE(22:6)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# change of csf ce(22:5)
+# first make a mini data frame for csf ce(22:5) and treatment
+mini = cbind(csf_CE_change$CE.22.5., ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_ce_225.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF CE(22:5)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+lipid = rep("CE(22:5)", nrow(mini))
+mini = cbind(mini, lipid)
+```
+
+```{r}
+# NEW Fig 1A. Combine all in one axis system, MAKE SURE TO USE ABSOLUTE CHANGE NOT PERCENT CHANGE
+# NOTE: These "mini" data frames are all different lipids! see above. run each lipid's mini first
+df_fig1a = data.frame()
+
+# Then run this line 7 times to come up with the combined data frame
+df_fig1a = rbind(df_fig1a, mini)
+
+# Now df_fig1a should contain all 7 lipids, draw boxplot
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/fig1/NEW_FIG1A.pdf", width = 10, height = 5)
+ggplot(df_fig1a,aes(y = V1, x = as.factor(lipid), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Concentration (µg/mL)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA"))
+dev.off()
+
+# Now only do CE22:6, PC38:6, PC40:6 for CSF (treated vs placebo)
+df_fig1a_new = df_fig1a[df_fig1a$lipid == "CE(22:6)" | df_fig1a$lipid == "PC(38:6)" | df_fig1a$lipid == "PC(40:6)",]
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/fig1/NEW_FIG1A_NEW.pdf", width = 5, height = 5)
+ggplot(df_fig1a_new,aes(y = V1, x = as.factor(lipid), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Concentration in CSF (µg/mL)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA"))
+dev.off()
+
+# Now do CE22:6, PC38:6, PC40:6 for Plasma (treated vs placebo)
+df_fig1a_pla = data.frame()
+
+mini = cbind(pla_CE_change$CE.22.6., ft_treatment)
+mini = as.data.frame(mini)
+lipid = rep("CE(22:6)", nrow(mini))
+mini = cbind(mini, lipid)
+df_fig1a_pla = rbind(df_fig1a_pla, mini)
+
+mini = cbind(pla_PC_change$PC.38.6, ft_treatment)
+mini = as.data.frame(mini)
+lipid = rep("PC(38:6)", nrow(mini))
+mini = cbind(mini, lipid)
+df_fig1a_pla = rbind(df_fig1a_pla, mini)
+
+mini = cbind(pla_PC_change$PC.40.6, ft_treatment)
+mini = as.data.frame(mini)
+lipid = rep("PC(40:6)", nrow(mini))
+mini = cbind(mini, lipid)
+df_fig1a_pla = rbind(df_fig1a_pla, mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/fig1/NEW_FIG1A_NEW_PLASMA.pdf", width = 5, height = 5)
+ggplot(df_fig1a_pla,aes(y = V1, x = as.factor(lipid), fill = as.factor(ft_treatment))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_treatment))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Concentration in Plasma (µg/mL)") +
+  scale_fill_discrete(name = "Treatment", labels = c("Placebo", "DHA"))
+dev.off()
+```
+
+```{r}
+# change of csf tg(50:5) by apoe4
+# first make a mini data frame for csf tg(50:5) and apoe4
+mini = cbind(csf_TG_change$TG.50.5., ft_apoe4)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_TG_505.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_apoe4), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(50:5)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("E4-", "E4+"))
+dev.off()
+```
+
+```{r}
+# change of csf tg(52:6) by apoe4
+# first make a mini data frame for csf tg(52:6) and apoe4
+mini = cbind(csf_TG_change$TG.52.6., ft_apoe4)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_TG_526.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_apoe4), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(52:6)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("E4-", "E4+"))
+dev.off()
+```
+
+```{r}
+# change of csf tg(50:3) by apoe4
+# first make a mini data frame for csf tg(50:3) and apoe4
+mini = cbind(csf_TG_change$TG.50.3., ft_apoe4)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/csf_TG_503.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_apoe4), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(50:3)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("E4-", "E4+"))
+dev.off()
+```
+
+```{r}
+# change of plasma tg(56:8) by treatment and apoe4
+# first make a mini data frame for plasma tg(56:8) and treatment and apoe4
+mini = cbind(pla_TG_change$TG.56.8., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/pla_TG_568.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Plasma TG(56:8)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA")) +
+  geom_signif(comparisons = list(c("1", "2")), 
+              map_signif_level=T, tip_length=0) +
+  stat_compare_means(aes(group = as.factor(ft_apoe4)), label = "p.signif")
+dev.off()
+
+# run interaction model for tg(56:8)
+mini = cbind(mini, df_tg_baseline_pla$TG.56.8.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+
+
+# Make same results for csf
+mini = cbind(csf_TG_change$TG.56.8., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/new/csf_TG_568.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(56:8)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+# Check interaction model
+mini = cbind(mini, df_tg_baseline_csf$TG.56.8.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+```
+
+```{r}
+# change of plasma tg(56:7) by treatment and apoe4
+# first make a mini data frame for plasma tg(56:7) and treatment and apoe4
+mini = cbind(pla_TG_change$TG.56.7., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/pla_TG_567.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Plasma TG(56:7)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA")) +
+   geom_signif(comparisons = list(c("1", "2")), 
+              map_signif_level=TRUE, tip_length=0) +
+  stat_compare_means(aes(group = as.factor(ft_apoe4)), label = "p.signif")
+dev.off()
+
+# run interaction model for tg(56:7)
+mini = cbind(mini, df_tg_baseline_pla$TG.56.7.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+
+# Make same results for csf
+mini = cbind(csf_TG_change$TG.56.7., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/new/csf_TG_567.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(56:7)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+# Check interaction
+mini = cbind(mini, df_tg_baseline_csf$TG.56.7.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+```
+
+```{r}
+# change of plasma tg(54:7) by treatment and apoe4
+# first make a mini data frame for plasma tg(54:7) and treatment and apoe4
+mini = cbind(pla_TG_change$TG.54.7., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/02032022/high res images/pla_TG_547.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of Plasma TG(54:7)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA")) +
+   geom_signif(comparisons = list(c("1", "2")), 
+              map_signif_level=TRUE, tip_length=0) +
+  stat_compare_means(aes(group = as.factor(ft_apoe4)), label = "p.signif")
+dev.off()
+
+# run interaction model for tg(54:7)
+mini = cbind(mini, df_tg_baseline_pla$TG.54.7.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+
+
+# Make same results for csf
+mini = cbind(csf_TG_change$TG.54.7., ft_apoe4, ft_treatment)
+mini = as.data.frame(mini)
+
+# Figure
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Xulei Project/mikaila/high res images/new/csf_TG_547.pdf", width = 5, height = 5)
+ggplot(mini,aes(y = V1, x = as.factor(ft_treatment), fill = as.factor(ft_apoe4))) +
+  geom_boxplot() +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, position = position_jitterdodge(), aes(fill = as.factor(ft_apoe4))) + 
+  theme_classic() +
+  labs(x = "", y = "Change of CSF TG(54:7)") +
+  scale_fill_discrete(name = "ApoE4", labels = c("E4-", "E4+")) + 
+  scale_x_discrete(labels=c("Placebo", "DHA"))
+dev.off()
+
+# Check interaction model
+mini = cbind(mini, df_tg_baseline_csf$TG.54.7.)
+colnames(mini) = c("change", "apoe4", "treat", "baseline")
+
+summary(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+report(lm(change ~ treat + apoe4 + treat*apoe4 + baseline, mini))
+```
+
+
+```{r}
+#*NEW EXTRA FIG: compare baseline, first do CE***
+View(df_ce_baseline_csf)
+df_ce_baseline_csf_avg = colMeans(df_ce_baseline_csf)
+df_ce_baseline_csf_avg = as.data.frame(df_ce_baseline_csf_avg)
+df_ce_baseline_csf_avg["lipid_name"] = rownames(df_ce_baseline_csf_avg)
+rownames(df_ce_baseline_csf_avg) = NULL
+df_ce_baseline_csf_avg$DHA_status = ifelse(df_ce_baseline_csf_avg$lipid_name %in% c("CE.20.5.", "CE.22.6."), "DHA" , ifelse(df_ce_baseline_csf_avg$lipid_name %in% c("CE.20.4.", "CE.18.3.", "CE.22.4.", "CE.22.5."), "ARA", "Unknown"))
+df_ce_baseline_csf_avg$CSF = "CSF"
+colnames(df_ce_baseline_csf_avg)[1] = "baseline_value"
+
+# Stacked Percentage 
+ggplot(df_ce_baseline_csf_avg, aes(fill=DHA_status, y=baseline_value, x=CSF)) + 
+    geom_bar(position="fill", stat="identity")
+```
+

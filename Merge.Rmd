@@ -1,0 +1,93 @@
+---
+title: "Merge Datasets"
+
+output: html_notebook
+---
+```{r}
+library(readxl)
+library(ggplot2)
+library(ggpubr)
+library(dbplyr)
+library(Hmisc)
+library(psych)      # correlation p
+library(writexl)      # export excel
+
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(dendextend) # for comparing two dendrograms
+
+library(XLConnect)
+```
+
+```{r}
+main = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Merge/HDL Dataset.xlsx")
+View(main)
+
+dataset_1 = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Merge/pass HMRI Full Data (HMRI) 20181105.xlsx")
+
+dataset_1 = dataset_1[,c("Sample_ID", "Statins")]
+
+main = merge(main, dataset_1, by="Sample_ID", all.x = TRUE)
+
+dataset_2 = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Merge/Joon.xlsx", sheet="Meds Data James")
+
+dataset_2 = dataset_2[,c("Sample_ID", "Statins_2")]
+
+View(dataset_2)
+
+all_IDs = data.frame(unique(dataset_2[,1]))
+
+all_IDs = all_IDs %>%
+  add_column("Statins_2" = NA)
+
+# colnames(all_IDs) = c("Sample_ID", "Statins_2")
+
+View(all_IDs)
+
+for (ID in all_IDs[,1]) {
+  temp = subset(dataset_2, Sample_ID == ID)
+  if (any(temp[,2] == 1)){
+    all_IDs = rbind(all_IDs, c(ID, 1))
+  }
+  else if (any(temp[,2] == 0)){
+    all_IDs = rbind(all_IDs, c(ID, 0))
+  }
+  else {
+    all_IDs = rbind(all_IDs, c(ID, NA))
+  }
+}
+View(all_IDs)
+
+all_IDs = all_IDs[-c(1:182),]
+  
+main = merge(main, all_IDs, by="Sample_ID")
+
+main$Statin = ifelse(is.na(main$Statins), main$Statins_2, main$Statins)
+
+View(main)
+
+dir = c("/Users/haotianxian/Documents/Dr. Yassine/Merge")
+write.xlsx(main, file.path(dir, "Merged_all.xlsx"), row.names = FALSE)
+```
+
+
+```{r}
+# make summary of merged data
+library(tidyverse)
+library(haven)
+library(gtsummary)
+library(gt)
+merged = read_excel("/Users/haotianxian/Documents/Dr. Yassine/Merge/Merged_all.xlsx")
+
+tbl = merged %>% 
+  select (age, sex, ethnicity, CDR, BMI, Statin) %>% 
+  tbl_summary (missing="ifany", statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} / {N} ({p}%)"), digits = all_continuous() ~ 2, label = list(age ~ "Patient age (years)", sex ~ "Gender", ethnicity ~ "Ethnicity", CDR ~ "Clinical Dementia Rating", BMI ~ "Body Mass Index (kg/m²)", Statin ~ "Statin Treated")) %>% add_n() %>% modify_header(label = "**Variable**") %>%  modify_caption("**Table 1. Basic Demographic Information and Summary Statistics**") %>% as_gt()
+
+theme_gtsummary_journal(journal = "jama")
+theme_gtsummary_compact()
+
+tbl%>% gt::gtsave("summ_merge.html", path = c("/Users/haotianxian/Documents/Dr. Yassine/Merge"))
+```
+
+

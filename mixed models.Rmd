@@ -1,0 +1,4352 @@
+---
+title: "CS6253 Monkey Study"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("ggplot2")
+library("readxl")
+library("lme4")
+library("tidyverse")
+library("jtools")
+library("lmerTest")
+library("tibble")
+library("report")
+library("xlsx")
+library("ggpubr")
+library("reshape")
+library("dplyr")
+library("EnvStats")
+library("DataCombine")
+library("writexl")
+```
+
+# Extra Plots Henrik Data DRF Study
+```{r}
+# read in data CSF APP
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_csfapp = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "APP")
+head(df_csfapp)
+
+#helper function
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+#summarize the data
+df_summ = data_summary(df_csfapp, varname="csf_app", 
+                    groupnames=c("time", "group"))
+df_summ$group=factor(df_summ$group, levels=c("1","2","3","4"), ordered=TRUE)
+df_summ$time = factor(df_summ$time, levels=c("Pre", "Day 9"), ordered=TRUE)
+View(df_summ)
+
+#draw population profile (averaging the monkeys)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_csfapp.pdf", width = 11, height = 6)
+ggplot(df_summ, aes(x = time, y = csf_app, group = group, color = group)) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  geom_errorbar(aes(ymin=csf_app-sd, ymax=csf_app+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - CSF APP Level", x="Time", y = "CSF APP", color = "Dose (mg/kg)") +
+  scale_colour_discrete(labels = c("Control", "75", "150", "225")) + 
+  theme_pubr()
+dev.off()
+
+# linear model
+df_csfapp$treatment_group = ifelse(df_csfapp$group == 1, 0, 1)
+df_csfapp$after_injection = ifelse(df_csfapp$time == "Pre", 0, 1)
+View(df_csfapp)
+
+report(lm(csf_app ~ group + after_injection + group*after_injection, df_csfapp))
+
+# correlation scatter plot csf change in abeta42 vs change in csf app
+change_ab42 = subset(df_csfapp, time == "Day 9")$csf_ab42 - subset(df_csfapp, time == "Pre")$csf_ab42
+change_app = subset(df_csfapp, time == "Day 9")$csf_app - subset(df_csfapp, time == "Pre")$csf_app
+change = as.tibble(cbind(change_app, change_ab42))
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_app_ab42.pdf", width = 11, height = 6)
+ggplot(change, aes(x = change_app, y = change_ab42)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Change in CSF APP and CSF AB42", x="Change in CSF AB42", y = "Change in CSF APP") +
+  theme_pubr() 
+dev.off()
+
+# boxplots comparing csf change in abeta42 vs change in csf app
+change_ab42_percent = (subset(df_csfapp, time == "Day 9")$csf_ab42 - subset(df_csfapp, time == "Pre")$csf_ab42) / subset(df_csfapp, time == "Pre")$csf_ab42
+
+change_app_percent = (subset(df_csfapp, time == "Day 9")$csf_app - subset(df_csfapp, time == "Pre")$csf_app) / subset(df_csfapp, time == "Pre")$csf_app
+
+change_long = as.tibble(append(change_app_percent, change_ab42_percent))
+type = c(rep("app", 15),rep("ab42",15))
+change_long = cbind(change_long, type)
+View(change_long)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_app_ab42.pdf", width = 6, height = 6)
+
+ggplot(change_long, aes(x=type, y=value, fill=type)) +
+  geom_boxplot()+ stat_compare_means(label = "p.format") +
+  labs(fill = "Type of Lipid", title="Percentage Change in CSF AB42 vs. CSF APP",
+        x ="Type of Lipid", y = "Percent Change from Baseline") +
+  theme_pubr() +
+  scale_fill_discrete(labels = c("Change in APP", "Change in AB42"))
+
+dev.off()
+
+# box plot for CSF AB42
+dose = c(rep(1, 4), rep(2, 4), rep(3, 4), rep(4, 3))
+dose = c(rep(dose, 2))
+change_long = cbind(change_long, dose)
+View(change_long)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_csfab42.pdf", width = 6, height = 6)
+
+ggplot(change_long[16:30,], aes(x=as.factor(dose), y=value, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in CSF AB42",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+
+# box plot for CSF APP
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_csfapp.pdf", width = 6, height = 6)
+
+ggplot(change_long[1:15,], aes(x=as.factor(dose), y=value, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in CSF APP",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+
+```
+
+```{r}
+# read in data CSF AP2B1
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_csfap2b1 = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "AP2B1")
+head(df_csfap2b1)
+View(df_csfap2b1)
+
+#helper function
+#+++++++++++++++++++++++++
+# Function to calculate the mean and the standard deviation
+  # for each group
+#+++++++++++++++++++++++++
+# data : a data frame
+# varname : the name of a column containing the variable
+  #to be summariezed
+# groupnames : vector of column names to be used as
+  # grouping variables
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+#summarize the data
+df_summ = data_summary(df_csfap2b1, varname="csf_ap2b1", 
+                    groupnames=c("time", "group"))
+df_summ$group=factor(df_summ$group, levels=c("1","2","3","4"), ordered=TRUE)
+df_summ$time = factor(df_summ$time, levels=c("Pre", "Day 9"), ordered=TRUE)
+View(df_summ)
+
+#draw population profile (averaging the monkeys)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_csfap2b1.pdf", width = 11, height = 6)
+ggplot(df_summ, aes(x = time, y = csf_ap2b1, group = group, color = group)) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  geom_errorbar(aes(ymin=csf_ap2b1-sd, ymax=csf_ap2b1+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - CSF AP2B1 Level", x="Time", y = "CSF AP2B1", color = "Dose (mg/kg)") +
+  scale_colour_discrete(labels = c("Control", "75", "150", "225")) + 
+  theme_pubr()
+dev.off()
+
+# linear model
+df_csfap2b1$treatment_group = ifelse(df_csfap2b1$group == 1, 0, 1)
+df_csfap2b1$after_injection = ifelse(df_csfap2b1$time == "Pre", 0, 1)
+View(df_csfap2b1)
+
+report(lm(csf_ap2b1 ~ group + after_injection + group*after_injection, df_csfap2b1))
+
+# correlation scatter plot csf change in abeta42 vs change in csf ap2b1
+change_ab42 = subset(df_csfap2b1, time == "Day 9")$csf_ab42 - subset(df_csfap2b1, time == "Pre")$csf_ab42
+change_ap2b1 = subset(df_csfap2b1, time == "Day 9")$csf_ap2b1 - subset(df_csfap2b1, time == "Pre")$csf_ap2b1
+change = as.tibble(cbind(change_ap2b1, change_ab42))
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_ap2b1_ab42.pdf", width = 11, height = 6)
+ggplot(change, aes(x = change_ap2b1, y = change_ab42)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Change in CSF AP2B1 and CSF AB42", x="Change in CSF AB42", y = "Change in CSF AP2B1") +
+  theme_pubr()
+dev.off()
+
+# boxplots comparing csf change in abeta42 vs change in csf ap2b1
+change_ab42_percent = (subset(df_csfap2b1, time == "Day 9")$csf_ab42 - subset(df_csfap2b1, time == "Pre")$csf_ab42) / subset(df_csfap2b1, time == "Pre")$csf_ab42
+
+change_ap2b1_percent = (subset(df_csfap2b1, time == "Day 9")$csf_ap2b1 - subset(df_csfap2b1, time == "Pre")$csf_ap2b1) / subset(df_csfap2b1, time == "Pre")$csf_ap2b1
+View(change_ap2b1_percent)
+
+change_long = as.tibble(append(change_ap2b1_percent, change_ab42_percent))
+type = c(rep("ap2b1", 14),rep("ab42",14))
+change_long = cbind(change_long, type)
+View(change_long)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_ap2b1_ab42.pdf", width = 6, height = 6)
+
+ggplot(change_long, aes(x=type, y=value, fill=type)) +
+  geom_boxplot()+ stat_compare_means(label = "p.format") +
+  labs(fill = "Type of Lipid", title="Percentage Change in CSF AB42 vs. CSF AP2B1",
+        x ="Type of Lipid", y = "Percent Change from Baseline") +
+  theme_pubr() +
+  scale_fill_discrete(labels = c("Change in AP2B1", "Change in AB42"))
+
+dev.off()
+
+# box plot for CSF AP2B1
+dose = c(rep(1, 4), rep(2, 4), rep(3, 3), rep(4, 3))
+dose = c(rep(dose, 2))
+change_long = cbind(change_long, dose)
+View(change_long)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_csfap2b1.pdf", width = 6, height = 6)
+
+ggplot(change_long[1:14,], aes(x=as.factor(dose), y=value, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in CSF AP2B1",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+
+```
+
+
+
+# M1 data extra analysis DRF monkeys
+```{r}
+# read in data HDL Raw Values
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_DRF_HDL_raw = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "DRF_HDL_raw")
+head(df_DRF_HDL_raw)
+View(df_DRF_HDL_raw)
+
+# draw profile HDL Raw Values Over Time
+# make time an ordered factor
+df_DRF_HDL_raw$time <- factor(df_DRF_HDL_raw$time, levels = c("D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_DRF_HDL_raw.pdf", width = 11, height = 6)
+ggplot(df_DRF_HDL_raw, aes(x = time, y =value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in HDL Over Time", x="Time", y = expression(paste(
+  "HDL Level (",mu,"M)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# read in data HDL Percentage Composition
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_DRF_HDL_comp = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "DRF_HDL_comp")
+head(df_DRF_HDL_comp)
+
+# draw profile HDL Percentage Composition Over Time
+# make time an ordered factor
+df_DRF_HDL_comp$time <- factor(df_DRF_HDL_comp$time, levels = c("D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_DRF_HDL_comp.pdf", width = 11, height = 6)
+ggplot(df_DRF_HDL_comp, aes(x = time, y =value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in HDL Over Time (% Composition)", x="Time", y = expression(paste(
+  "HDL Level (% of Total HDL)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# read in data DRF Pre Beta
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_DRF_prebeta = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "DRF_Prebeta")
+head(df_DRF_prebeta)
+
+# draw profile Pre Beta Over Time
+# make time an ordered factor
+df_DRF_prebeta$time <- factor(df_DRF_prebeta$time, levels = c("D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_DRF_prebeta.pdf", width = 11, height = 6)
+ggplot(df_DRF_prebeta, aes(x = time, y =value, group = 1)) +
+  geom_line() +
+  geom_point() +
+  labs(title= expression(paste("Change in pre-", beta, "1-HDL(", mu, "M) Over Time", sep="")), x="Time", y = expression(paste(
+  "pre-", beta, "1-HDL(", mu, "M)", sep=""))) + theme_pubr()
+dev.off()
+```
+
+```{r}
+# read in data DRF Non HDL LP Raw
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_DRF_LP_raw = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "DRF_LP_raw")
+head(df_DRF_LP_raw)
+
+# draw profile Non HDL LP Over Time
+# make time an ordered factor
+df_DRF_LP_raw$time <- factor(df_DRF_LP_raw$time, levels = c("D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_DRF_LP_raw.pdf", width = 11, height = 6)
+ggplot(df_DRF_LP_raw, aes(x = time, y =value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in Non-HDL LPs Over Time", x="Time", y = expression(paste(
+  "Non-HDL LP Level (",mu,"M)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# read in data NON-HDL LP Percentage Composition
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_DRF_LP_comp = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "DRF_LP_comp")
+head(df_DRF_LP_comp)
+
+# draw profile LP Percentage Composition Over Time
+# make time an ordered factor
+df_DRF_LP_comp$time <- factor(df_DRF_LP_comp$time, levels = c("D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_DRF_LP_comp.pdf", width = 11, height = 6)
+ggplot(df_DRF_LP_comp, aes(x = time, y =value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in Non-HDL LPs Over Time (% Composition)", x="Time", y = expression(paste(
+  "Non-HDL LPs Level (% of Total Non-HDL LPs)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+## Make San Diego Monkey Extra Plots
+```{r}
+# read in data San Diego Monkey HDL raw values
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_SD_HDL = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "SD_HDL")
+head(df_SD_HDL)
+
+# draw profile of San Diego Monkey HDL raw values over time
+# make time an ordered factor
+df_SD_HDL$time <- factor(df_SD_HDL$time, levels = c("Pre", "5 min", "30 min", "1 hour", "2 hours", "4 hours"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_SD_HDL_raw.pdf", width = 11, height = 6)
+ggplot(df_SD_HDL, aes(x = time, y =raw_value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in San Diego Monkey HDL Over Time", x="Time", y = expression(paste(
+  "HDL Level (",mu,"M)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# draw profile San Diego Monkey HDL Percentage Composition 
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_SD_HDL_Comp.pdf", width = 11, height = 6)
+ggplot(na.omit(df_SD_HDL), aes(x = time, y =comp, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  labs(title="Change in San Diego Monkey HDL Over Time (% Composition)", x="Time", y = expression(paste(
+  "HDL Level (% of Total HDL)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# read in data San Diego Pre-Beta
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_SD_prebeta = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "SD_prebeta")
+head(df_SD_prebeta)
+
+# draw profile Pre Beta Over Time
+# make time an ordered factor
+df_SD_prebeta$time <- factor(df_SD_prebeta$time, levels = c("Pre", "5 min", "30 min", "1 hour", "2 hours", "4 hours"), ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_SD_prebeta.pdf", width = 11, height = 6)
+ggplot(df_SD_prebeta, aes(x = time, y =value, group = 1)) +
+  geom_line() +
+  geom_point() +
+  labs(title= expression(paste("Change in San Diego Monkey pre-", beta, "1-HDL(", mu, "M) Over Time", sep="")), x="Time", y = expression(paste(
+  "pre-", beta, "1-HDL(", mu, "M)", sep=""))) + theme_pubr()
+dev.off()
+```
+
+```{r}
+# read in data San Diego Monkey Non HDL LP Raw
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/data"
+df_SD_LP = read_xlsx(file.path(datadir, "IMA Monkey LPs Summary_08232021.xlsx"), sheet = "SD_LP")
+head(df_SD_LP)
+
+# draw profile Non HDL LP Over Time
+# make time an ordered factor
+df_SD_LP$time <- factor(df_SD_LP$time, levels = c("Pre", "5 min", "30 min", "1 hour", "2 hours", "4 hours"), ordered=TRUE)
+
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_SD_LP_raw.pdf", width = 11, height = 6)
+ggplot(df_SD_LP, aes(x = time, y =value, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in San Diego Monkey Non-HDL LPs Over Time (% Composition)", x="Time", y = expression(paste(
+  "Non-HDL LP Level (",mu,"M)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+
+
+# Draw San Diego Monkey Non HDL LP Percentage Composition
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/cristiana/plots/plot_SD_LP_comp.pdf", width = 11, height = 6)
+ggplot(df_SD_LP, aes(x = time, y =comp, group = type, color = type)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "green")) +
+  labs(title="Change in San Diego Monkey Non-HDL LPs Over Time", x="Time", y = expression(paste(
+  "Non-HDL LPs Level (% of Total Non-HDL LPs)", sep="")), color = "Type") +
+  theme_pubr()
+dev.off()
+```
+
+
+# Mixed and Linear Models - DRF and GLP Studies
+```{r}
+# data directory for all the data files
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data"
+
+#GLP Study -Plasma AB42 to AB40 ratio
+#laod GLP AB42:AB40 ratio data 
+glpratio <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB42 40 ratio")
+View(glpratio)
+
+#make time an ordered factor
+glpratio$time <- factor(glpratio$time, levels = c("Day 1 5m",	"Day 1 4h",	"Day 3 48h", "Day 9 5m",	"Day 9 4h",	"Day 11 48h",	"Day 25 5m",	"Day 25 4h",	"Day 27 48h"), ordered=TRUE)
+
+#mkae subject a factor
+glpratio$subject <- factor(glpratio$subject)
+
+#convert treatment to indicator factor
+glpratio$treat <- as.factor(glpratio$treat)
+
+#convert just_injected to indicator factor
+glpratio$just_injected <- as.factor(glpratio$just_injected)
+
+#boxplot justifying subject as random intercept
+boxp <- ggplot(glpratio, aes(x=time, y=ratio, group=subject, color=treat)) + 
+  labs(color = "Dose (mg/kg)") +
+  geom_boxplot()
+print(boxp)
+
+#subject profile plot
+pdf(file="plot_42_40_ratio_.pdf", width = 11, height = 5)
+ggplot(glpratio, aes(x = time, y = ratio, group=subject, color = treat)) +
+  labs(color = "Treatment (Placebo vs. Treatment)") +
+  scale_color_manual(values=c("blue", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Plasma AB42:AB40 Ratio") +
+  ggtitle("AB42 to 40 ratio - GLP Study") +
+  theme_pubr()
+  
+dev.off()
+
+#population profile plot
+# get percentage data
+glp_ratio <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB42 40 ratio percent")
+
+subject_values = as.vector(colnames(glp_ratio))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_ratio = data.frame(subject)
+
+ratio = numeric()
+
+for(i in 1:ncol(glp_ratio)) {       # for-loop over columns
+  ratio = append(ratio, as.vector(t(glp_ratio[i])))
+}
+
+ratio = ratio[!is.na(ratio)]
+
+df_glp_ratio = cbind(df_glp_ratio, ratio)
+
+View(df_glp_ratio)
+
+df_glp_ratio$time = glpab42$time
+
+df_glp_ratio$dose = glpab42$dose
+
+df_glp_ratio$treat = glpab42$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+df_glp_ratio$hr_since_inj = hr_since_values
+
+df_glp_ratio$time = factor(df_glp_ratio$time, 
+                                 levels = df_glp_ratio$time [25:33], ordered=TRUE)
+df_glp_ratio$subject = as.factor(df_glp_ratio$subject)
+
+View(df_glp_ratio)
+
+#helper function
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+View(df_glp_ratio)
+#summarize the data
+df_summ = data_summary(df_glp_ratio, varname="ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+# population profile
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_42_40_ratio_pop_profile.pdf", width = 11, height = 6)
+ggplot(df_summ, aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Plasma AB42:AB40 Ratio", x="Time", y = "Plasma AB42:AB40 Ratio", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# Extra population profile: make placebo with only dots, combined with normal other groups
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_42_40_ratio_pop_profile_new.pdf", width = 11, height = 6)
+ggplot(subset(df_summ, dose != 0), aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point() +
+  geom_point(subset(df_summ, dose == 0), mapping = aes(x = time, y = ratio)) +
+  geom_errorbar(df_summ, mapping = aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  labs(title="GLP Study - Plasma AB42:AB40 Ratio", x="Time", y = "Plasma AB42:AB40 Ratio ", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+```
+
+
+```{r}
+# lmer model for overall GLP-AB42 to 40 ratio
+# adding indicator variables for injected 4 hrs ago and 48 hrs ago
+df_glp_ratio$injected_4hr = ifelse(df_glp_ratio$hr_since_inj == 4, 1, 0)
+df_glp_ratio$injected_48hr = ifelse(df_glp_ratio$hr_since_inj == 48, 1, 0)
+df_glp_ratio = df_glp_ratio %>%
+    mutate(total_hr = case_when(time == "Day 1 5m" ~ 0.083,
+                                  time == "Day 1 4h" ~ 4,
+                                  time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.083,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.083,
+                                time == "Day 25 4h" ~ 580,
+                                time == "Day 27 48h" ~ 624))
+# setting baseline to 100
+df_glp_ratio[df_glp_ratio$time == "Day 1 5m",]$ratio = df_glp_ratio[df_glp_ratio$time == "Day 1 5m",]$ratio = 100
+
+# adding additional placebo measurements at 100%
+df_placebo_4hr = read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "Placebo_4hr_data", col_names = FALSE)
+View(df_placebo_4hr)
+colnames(df_placebo_4hr) = colnames(df_glp_ratio)
+
+df_glp_ratio = rbind(df_glp_ratio, df_placebo_4hr)
+
+View(df_glp_ratio)
+
+# running lmer model
+df_glp_ratio$treat = as.factor(df_glp_ratio$treat)
+lmer_glp_abratio = lmer(ratio ~ treat + total_hr + injected_4hr + treat*injected_4hr + 
+                          injected_48hr + treat*injected_48hr + (1 | subject), df_glp_ratio)
+
+plot(lmer_glp_abratio)
+summ(lmer_glp_abratio)
+ranova(lmer_glp_abratio)
+report(lmer_glp_abratio)
+
+# running an extra lmer model, no placebo, remove total_hr, add new var for cycle (day 1- cycle 1, day 9-cycle 2, day 25, cycle 3), remove interaction
+df_glp_ratio = df_glp_ratio %>%
+  mutate(cycle_num = case_when(total_hr <= 48 ~ 1,
+                               total_hr <= 240 ~ 2,
+                               total_hr <= 624 ~ 3))
+
+df_glp_ratio$cycle_num = as.factor(df_glp_ratio$cycle_num)
+  
+df_glp_ratio$dose = as.factor(df_glp_ratio$dose)
+  
+lmer_glp_abratio = lmer(ratio ~ dose + cycle_num + injected_4hr + injected_48hr + (1 | subject), subset(df_glp_ratio, treat == 1))
+report(lmer_glp_abratio)
+
+
+#export data file
+write_xlsx(df_glp_ratio,file.path(datadir, "GLP AB42:40 Data.xlsx"))
+
+```
+
+
+```{r}
+#GLP Study -Plasma AB42
+#load data
+glpab42 <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB42")
+
+head(glpab42)
+
+glpab42$time <- factor(glpab42$time, levels = c("Day 1 5m",	"Day 1 4h",	"Day 3 48h", "Day 9 5m",	"Day 9 4h",	"Day 11 48h",	"Day 25 5m",	"Day 25 4h",	"Day 27 48h"), ordered=TRUE)
+
+#ab42trends over time visualized
+pdf(file="plot_ab42_.pdf", width = 11, height = 5)
+par(mfrow=c(1,2))
+ggplot(glpab42, aes(x = time, y = ab42, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Plasma AB42 Concentration") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 4, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("AB42 Concentration - GLP Treatment Groups") +
+  geom_text(aes(x=1.2, label="1st injection", y = 8), color="black", angle=90) +
+  
+  geom_text(aes(x=4.2, label="5th injection", y = 8), color="black", angle=90) +
+  
+  geom_text(aes(x=7.2, label="13th injection", y=8), colour="black", angle=90)
+dev.off()
+
+#boxplot justifying subject as random intercept
+boxp <- ggplot(glpab42, aes(x=time, y=ab42, group=subject, color=as.factor(dose))) + 
+  labs(color = "Dose (mg/kg)") +
+  geom_boxplot()
+
+print(boxp)
+
+
+#population profile, percent change
+glp_ab42 <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB42_percent")
+
+subject_values = as.vector(colnames(glp_ab42))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_ab42 = data.frame(subject)
+
+ratio = numeric()
+
+for(i in 1:ncol(glp_ab42)) {       # for-loop over columns
+  ratio = append(ratio, as.vector(t(glp_ab42[i])))
+}
+
+ratio = ratio[!is.na(ratio)]
+
+df_glp_ab42 = cbind(df_glp_ab42, ratio)
+
+View(df_glp_ab42)
+
+df_glp_ab42$time = glpab42$time
+
+df_glp_ab42$dose = glpab42$dose
+
+df_glp_ab42$treat = glpab42$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+df_glp_ab42$hr_since_inj = hr_since_values
+
+df_glp_ab42$time = factor(df_glp_ab42$time, 
+                                 levels = df_glp_ab42$time [25:33], ordered=TRUE)
+df_glp_ab42$subject = as.factor(df_glp_ab42$subject)
+
+View(df_glp_ab42)
+
+#helper function
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+View(df_glp_ab42)
+#summarize the data
+df_summ = data_summary(df_glp_ab42, varname="ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+# population profile
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glpAB42_ratio_pop_profile.pdf", width = 11, height = 6)
+ggplot(df_summ, aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  # stat_summary(aes(group = dose), fun.y = mean, geom = 'line') +
+  geom_errorbar(aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Plasma AB42 Percentage Change", x="Time", y = "Plasma AB42 Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# Extra: make placebo with only dots, combined with normal other groups
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glpAB42_ratio_pop_profile_new.pdf", width = 11, height = 6)
+ggplot(subset(df_summ, dose != 0), aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point() +
+  geom_point(subset(df_summ, dose == 0), mapping = aes(x = time, y = ratio)) +
+  geom_errorbar(df_summ, mapping = aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  labs(title="GLP Study - Plasma AB42 Percentage Change", x="Time", y = "Plasma AB42 Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+```
+
+
+```{r}
+# lmer model for overall glp- ab42
+# setting indicator variables for injected 4hrs ago and 48 hrs ago
+df_glp_ab42$injected_4hr = ifelse(df_glp_ab42$hr_since_inj == 4, 1, 0)
+df_glp_ab42$injected_48hr = ifelse(df_glp_ab42$hr_since_inj == 48, 1, 0)
+df_glp_ab42 = df_glp_ab42 %>%
+    mutate(total_hr = case_when(time == "Day 1 5m" ~ 0.083,
+                                  time == "Day 1 4h" ~ 4,
+                                  time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.083,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.083,
+                                time == "Day 25 4h" ~ 580,
+                                time == "Day 27 48h" ~ 624))
+# setting baseline to 100
+df_glp_ab42[df_glp_ab42$time == "Day 1 5m",]$ab42 = df_glp_ab42[df_glp_ab42$time == "Day 1 5m",]$ab42 = 100
+
+# adding additional placebo measurements at 100%
+df_placebo_4hr = read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "Placebo_4hr_data", col_names = FALSE)
+View(df_placebo_4hr)
+colnames(df_placebo_4hr) = colnames(df_glp_ab42)
+
+df_glp_ab42 = rbind(df_glp_ab42, df_placebo_4hr)
+
+View(df_glp_ab42)
+
+# runnning lmer model
+lmer_glp_ab42 = lmer(ratio ~ treat + total_hr + injected_4hr + injected_48hr + treat*injected_4hr + treat*injected_48hr + (1 | subject), df_glp_ab42)
+
+plot(lmer_glp_ab42)
+summ(lmer_glp_ab42)
+ranova(lmer_glp_ab42)
+report(lmer_glp_ab42)
+
+# running an extra lmer model, no placebo, remove total_hr, add new var for cycle (day 1- cycle 1, day 9-cycle 2, day 25, cycle 3), remove interaction
+df_glp_ab42 = df_glp_ab42 %>%
+  mutate(cycle_num = case_when(total_hr <= 48 ~ 1,
+                               total_hr <= 240 ~ 2,
+                               total_hr <= 624 ~ 3))
+
+df_glp_ab42$cycle_num = as.factor(df_glp_ab42$cycle_num)
+
+df_glp_ab42$dose = as.factor(df_glp_ab42$dose)
+  
+lmer_glp_ab42 = lmer(ratio ~ dose + cycle_num + injected_4hr + injected_48hr  + (1 | subject), subset(df_glp_ab42, treat == 1))
+report(lmer_glp_ab42)
+```
+
+```{r}
+#GLPstudy - Plasma AB40
+
+glpab40 <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "GLP USC Individual Data.xlsx"), sheet = "AB40")
+
+
+glpab40$time <- factor(glpab40$time, levels = c("Day 1 5m",	"Day 1 4h",	"Day 3 48h", "Day 9 5m",	"Day 9 4h",	"Day 11 48h",	"Day 25 5m",	"Day 25 4h",	"Day 27 48h"), ordered=TRUE)
+
+#ab40trends over time visualized
+pdf(file="plot_ab40_.pdf", width = 11, height = 5)
+
+ggplot(glpab40, aes(x = time, y = ab40, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Plasma AB40 Concentration") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 4, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("AB40 Concentration - GLP Treatment Groups") +
+  geom_text(aes(x=1.2, label="1st injection", y = 110), color="black", angle=90) +
+  
+  geom_text(aes(x=4.2, label="5th injection", y = 110), color="black", angle=90) +
+  
+  geom_text(aes(x=7.2, label="13th injection", y=110), colour="black", angle=90)
+dev.off()
+
+#lmer model, placebo vs treatment
+ab40lmer <- lmer(ab40 ~ just_injected + total_num_inj + (1 | subject), glpab40[glpab40$treat==0,])
+
+plot(ab40lmer)
+coef(ab40lmer)
+ranef(ab40lmer)
+summary(ab40lmer)
+summ(ab40lmer)
+ranova(ab40lmer)
+
+report(ab40lmer)
+
+ab40lmer2 <- lmer(ab40 ~ just_injected + dose + total_num_inj + (1 | subject), glpab40[glpab40$treat==1,])
+
+plot(ab40lmer2)
+coef(ab40lmer2)
+ranef(ab40lmer2)
+summary(ab40lmer2)
+summ(ab40lmer2)
+ranova(ab40lmer2)
+
+report(ab40lmer2)
+
+#population profile, percent change
+glp_ab40 <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB40_percent")
+
+subject_values = as.vector(colnames(glp_ab40))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_ab40 = data.frame(subject)
+
+ratio = numeric()
+
+for(i in 1:ncol(glp_ab40)) {       # for-loop over columns
+  ratio = append(ratio, as.vector(t(glp_ab40[i])))
+}
+
+ratio = ratio[!is.na(ratio)]
+
+df_glp_ab40 = cbind(df_glp_ab40, ratio)
+
+View(df_glp_ab40)
+
+df_glp_ab40$time = glpab40$time
+
+df_glp_ab40$dose = glpab40$dose
+
+df_glp_ab40$treat = glpab40$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+df_glp_ab40$hr_since_inj = hr_since_values
+
+df_glp_ab40$time = factor(df_glp_ab40$time, 
+                                 levels = df_glp_ab40$time [25:33], ordered=TRUE)
+df_glp_ab40$subject = as.factor(df_glp_ab40$subject)
+
+View(df_glp_ab40)
+
+#helper function
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+View(df_glp_ab40)
+#summarize the data and draw population profile
+df_summ = data_summary(df_glp_ab40, varname="ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+# population profile
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glpab40_pop_profile.pdf", width = 11, height = 6)
+ggplot(df_summ, aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Plasma AB40 Percentage Change", x="Time", y = "Plasma AB40 Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# extra: population profile but placebo is just points
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glpab40_pop_profile_new.pdf", width = 11, height = 6)
+ggplot(subset(df_summ, dose != 0), aes(x = time, y = ratio, group = dose, color = dose)) +
+  geom_line() +
+  geom_point()+
+  geom_point(subset(df_summ, dose == 0), mapping = aes(x=time, y=ratio)) +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(df_summ, mapping = aes(ymin=ratio-sd, ymax=ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Plasma AB40 Percentage Change", x="Time", y = "Plasma AB40 Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# lmer model for overall glp- ab40
+# setting indicator variables for injected 4hrs ago and 48 hrs ago
+df_glp_ab40$injected_4hr = ifelse(df_glp_ab40$hr_since_inj == 4, 1, 0)
+df_glp_ab40$injected_4hr[1:24] = 0
+df_glp_ab40$injected_48hr = ifelse(df_glp_ab40$hr_since_inj == 48, 1, 0)
+df_glp_ab40$injected_48hr[1:24] = 0
+df_glp_ab40 = df_glp_ab40 %>%
+    mutate(total_hr = case_when(time == "Day 1 5m" ~ 0.083,
+                                  time == "Day 1 4h" ~ 4,
+                                  time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.083,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.083,
+                                time == "Day 25 4h" ~ 580,
+                                time == "Day 27 48h" ~ 624))
+
+# setting baseline to 100
+df_glp_ab40[df_glp_ab40$time == "Day 1 5m",]$ratio = df_glp_ab40[df_glp_ab40$time == "Day 1 5m",]$ratio = 100
+
+# adding additional placebo measurements at 100%
+df_placebo_4hr = read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "Placebo_4hr_data", col_names = FALSE)
+View(df_placebo_4hr)
+colnames(df_placebo_4hr) = colnames(df_glp_ab40)
+
+df_glp_ab40 = rbind(df_glp_ab40, df_placebo_4hr)
+
+View(df_glp_ab40)
+
+#lmer model
+lmer_glp_ab40 = lmer(ratio ~ treat + total_hr + injected_4hr + injected_48hr + treat*injected_4hr + treat*injected_48hr + (1 | subject), df_glp_ab40)
+
+plot(lmer_glp_ab40)
+summ(lmer_glp_ab40)
+ranova(lmer_glp_ab40)
+report(lmer_glp_ab40)
+
+
+
+# running an extra lmer model, no placebo, remove total_hr, add new var for cycle (day 1- cycle 1, day 9-cycle 2, day 25, cycle 3), remove interaction
+df_glp_ab40 = df_glp_ab40 %>%
+  mutate(cycle_num = case_when(total_hr <= 48 ~ 1,
+                               total_hr <= 240 ~ 2,
+                               total_hr <= 624 ~ 3))
+  
+df_glp_ab40$cycle_num = as.factor(df_glp_ab40$cycle_num)
+
+df_glp_ab40$dose = as.factor(df_glp_ab40$dose)
+
+lmer_glp_ab40 = lmer(ratio ~ dose + cycle_num + injected_4hr + injected_48hr  + (1 | subject), subset(df_glp_ab40, treat == 1))
+report(lmer_glp_ab40)
+
+```
+
+```{r}
+#DRF study, plasma cholesterol
+
+drf_chol <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "DRF Study Individual Data.xlsx"), sheet = "Total Cholesterol_%_change")
+
+
+drf_chol$time <- factor(drf_chol$time, levels = c("Baseline",	"D1 10min",	"D1 2hr", "D1 4hr",	"D1 12hr",	"D1 24hr",	"D1 48hr",	"D9 10min",	"D9 2hr", "D9 4hr", "D9 12hr", "D9 24hr", "D9 48hr"), ordered=TRUE)
+
+drf_chol$subject = as.factor(drf_chol$subject)
+drf_chol$just_injected = as.factor(drf_chol$just_injected)
+
+#chol over time visualized - subject profile
+pdf(file="drf_chol_percent_change.pdf", width = 11, height = 5)
+
+ggplot(drf_chol, aes(x = time, y = chol, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 2, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 8, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("Total Cholesterol Percent Change - DRF") +
+  geom_text(aes(x=1.8, label="1st injection", y = 60), color="black", angle=90) +
+  
+  geom_text(aes(x=7.8, label="5th injection", y = 60), color="black", angle=90)
+  
+dev.off()
+
+#chol over time visualized - pop profile
+
+df_summ = data_summary(drf_chol, varname="chol", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_chol_pop_profile.pdf", width = 11, height = 6)
+
+ggplot(df_summ, aes(x = time, y = chol, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=chol-sd, ymax=chol+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Cholesterol Percent Change Over Time", x="Time", y = "Cholesterol Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+View(drf_chol)
+
+```
+
+
+```{r}
+# DRF Chol Mixed Model
+#overall model
+
+drf_chol = drf_chol %>%
+    mutate(total_hr = case_when(time == "Baseline" ~ 0,
+                                  time == "D1 10min" ~ 0.167,
+                                  time == "D1 2hr" ~ 2,
+                                time == "D1 4hr" ~ 4,
+                                time == "D1 12hr" ~ 12,
+                                time == "D1 24hr" ~ 24,
+                                time == "D1 48hr" ~ 48,
+                                time == "D9 10min" ~ 192.167,
+                                time == "D9 2hr" ~ 194,
+                                time == "D9 4hr" ~ 196,
+                                time == "D9 12hr" ~ 204,
+                                time == "D9 24hr" ~ 216,
+                                time == "D9 48hr" ~ 240))
+
+lmer_drf_chol <- lmer(chol ~ treat + as.factor(hr_since_inj) + total_hr +  (1 | subject), drf_chol)
+
+plot(lmer_drf_chol)
+summ(lmer_drf_chol)
+ranova(lmer_drf_chol)
+
+report(lmer_drf_chol)
+```
+
+```{r}
+# GLP CHOL DATA wrangling
+
+glp_chol <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "GLP IDEXX Individual Data.xlsx"), sheet = "Sheet2")
+
+glp_chol_values = as.vector(t(glp_chol[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_chol$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_chol_values)
+
+df_glp_chol = data.frame(subject_num, glp_chol_values)
+
+time_values = as.vector(colnames(glp_chol))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_chol[3] = time
+
+colnames(df_glp_chol)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_chol[4] = dose
+
+colnames(df_glp_chol)[4] = "dose"
+
+View(df_glp_chol)
+
+treat_values = numeric()
+
+for (d in df_glp_chol$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_chol[5] = treat_values
+
+colnames(df_glp_chol)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_chol[6] = total_num_inj
+
+colnames(df_glp_chol)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_chol[7] = just_injected
+
+colnames(df_glp_chol)[7] = "just_injected"
+
+
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_chol[8] = hr_since_inj
+
+colnames(df_glp_chol)[8] = "hr_since_inj"
+
+View(df_glp_chol)
+
+View(df_glp_chol[dose==0,])$time
+
+# plot subject profile
+df_glp_chol$time = factor(df_glp_chol$time, levels = time_values, ordered=TRUE)
+df_glp_chol$subject_num = as.factor(df_glp_chol$subject_num)
+df_glp_chol$just_injected = as.factor(df_glp_chol$just_injected)
+
+View(df_glp_chol)
+
+times = as.vector(rep(c(1:18), 32))
+
+df_glp_chol = cbind(df_glp_chol, times)
+
+View(df_glp_chol)
+
+pdf(file="glp_chol_percent_change.pdf", width = 15, height = 5)
+
+ggplot(df_glp_chol, aes(x = time, y = glp_chol_values, group=subject_num, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage Change") +
+  ggtitle("Total Cholesterol Percent Change - GLP") +
+  theme_bw()
+dev.off()
+
+# plot pop profile
+View(df_glp_chol)
+df_summ = data_summary(df_glp_chol, varname="glp_chol_values", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_chol_pop_profile.pdf", width = 17, height = 6)
+
+ggplot(df_summ, aes(x = time, y = glp_chol_values, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=glp_chol_values-sd, ymax=glp_chol_values+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Cholesterol Percent Change Over Time", x="Time", y = "Cholesterol Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# GLP Chol Mixed Model
+#overall model
+print(levels(df_glp_chol$time))
+df_glp_chol = df_glp_chol %>%
+    mutate(total_hr = case_when(  time == "Day 1 5m" ~ 0.0833,
+                                  time == "Day 1 2h" ~ 2,
+                                time == "Day 1 4h" ~ 4,
+                                time == "Day 1 12h" ~ 12,
+                                time == "Day 2 24h" ~ 24,
+                                time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.0833,
+                                time == "Day 9 2h" ~ 194,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 9 12h" ~ 204,
+                                time == "Day 10 24h" ~ 216,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.0833,
+                               time == "Day 25 2h" ~ 578,
+                               time == "Day 25 4h" ~ 580,
+                               time == "Day 25 12h" ~ 588,
+                               time == "Day 26 24h" ~ 600,
+                               time == "Day 27 48h" ~ 624))
+View(df_glp_chol)
+
+lmer_glp_chol <- lmer(glp_chol_values ~ treat + total_hr +
+                              as.factor(hr_since_inj) + treat*as.factor(hr_since_inj) + (1 | subject_num), df_glp_chol)
+
+plot(lmer_glp_chol)
+coef(lmer_glp_chol)
+ranef(lmer_glp_chol)
+summary(lmer_glp_chol)
+summ(lmer_glp_chol)
+ranova(lmer_glp_chol)
+
+report(lmer_glp_chol)
+```
+
+
+```{r}
+#DRF Study Plasma HDL-cholesterol
+#data wrangling
+drf_hdl_chol <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "HDL-c%change")
+
+View(drf_hdl_chol)
+
+subject_values = as.vector(colnames(drf_hdl_chol))
+
+counter = 1
+rep_times = c(rep(3,4), rep(13, 8))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_drf_hdl_chol = data.frame(subject)
+
+hdl_chol = numeric()
+
+for(i in 1:ncol(drf_hdl_chol)) {       # for-loop over columns
+  hdl_chol = append(hdl_chol, as.vector(t(drf_hdl_chol[i])))
+}
+
+hdl_chol = hdl_chol[!is.na(hdl_chol)]
+
+df_drf_hdl_chol = cbind(df_drf_hdl_chol, hdl_chol)
+
+df_drf_hdl_chol$time = drf_chol$time[1:116]
+
+df_drf_hdl_chol$dose = drf_chol$dose[1:116]
+
+df_drf_hdl_chol$just_injected = drf_chol$just_injected[1:116]
+
+df_drf_hdl_chol$hr_since_inj = drf_chol$hr_since_inj[1:116]
+
+df_drf_hdl_chol$total_num_inj = drf_chol$total_num_inj[1:116]
+
+df_drf_hdl_chol$treat = drf_chol$treat[1:116]
+
+df_drf_hdl_chol$dose[91:length(df_drf_hdl_chol$dose)] = 225
+
+View(df_drf_hdl_chol)
+
+df_drf_hdl_chol$time = factor(df_drf_hdl_chol$time, 
+                                 levels = df_drf_hdl_chol$time [13:25], ordered=TRUE)
+df_drf_hdl_chol$subject = as.factor(df_drf_hdl_chol$subject)
+df_drf_hdl_chol$just_injected = as.factor(df_drf_hdl_chol$just_injected)
+
+#subject profile
+pdf(file="drf_hdl_chol_percent_change.pdf", width = 11, height = 5)
+
+ggplot(df_drf_hdl_chol, aes(x = time, y = hdl_chol, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 2, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 8, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("HDL-c Percent Change - DRF") +
+  geom_text(aes(x=1.8, label="1st injection", y = 60), color="black", angle=90) +
+  
+  geom_text(aes(x=7.8, label="5th injection", y = 60), color="black", angle=90)
+  
+dev.off()
+
+#pop profile
+df_summ = data_summary(df_drf_hdl_chol, varname="hdl_chol", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_hdl_chol_pop_profile.pdf", width = 13, height = 6)
+
+ggplot(df_summ, aes(x = time, y = hdl_chol, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=hdl_chol-sd, ymax=hdl_chol+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - HDL-Cholesterol Percent Change Over Time", x="Time", y = "Cholesterol Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+View(df_drf_hdl_chol)
+
+```
+
+```{r}
+#lmer models DRF Study Plasma HDL-cholesterol
+df_drf_hdl_chol = df_drf_hdl_chol %>%
+    mutate(total_hr = case_when(time == "Baseline" ~ 0,
+                                  time == "D1 10min" ~ 0.167,
+                                  time == "D1 2hr" ~ 2,
+                                time == "D1 4hr" ~ 4,
+                                time == "D1 12hr" ~ 12,
+                                time == "D1 24hr" ~ 24,
+                                time == "D1 48hr" ~ 48,
+                                time == "D9 10min" ~ 192.167,
+                                time == "D9 2hr" ~ 194,
+                                time == "D9 4hr" ~ 196,
+                                time == "D9 12hr" ~ 204,
+                                time == "D9 24hr" ~ 216,
+                                time == "D9 48hr" ~ 240))
+
+print(levels(df_drf_hdl_chol$time))
+lmer_drf_hdl_chol = lmer(hdl_chol ~ treat + as.factor(hr_since_inj) + total_hr + (1 | subject), df_drf_hdl_chol)
+
+plot(lmer_drf_hdl_chol)
+summ(lmer_drf_hdl_chol)
+ranova(lmer_drf_hdl_chol)
+
+report(lmer_drf_hdl_chol)
+```
+
+
+```{r}
+#GLP IDEXX HDL CHOL DATA WRANGLING
+glp_hdl <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "GLP IDEXX Individual Data.xlsx"), sheet = "glp_hdl_chol")
+
+glp_hdl_values = as.vector(t(glp_hdl[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_hdl$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_hdl_values)
+
+df_glp_hdl = data.frame(subject_num, glp_hdl_values)
+
+time_values = as.vector(colnames(glp_hdl))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_hdl[3] = time
+
+colnames(df_glp_hdl)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_hdl[4] = dose
+
+colnames(df_glp_hdl)[4] = "dose"
+
+View(df_glp_hdl)
+
+treat_values = numeric()
+
+for (d in df_glp_hdl$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_hdl[5] = treat_values
+
+colnames(df_glp_hdl)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_hdl[6] = total_num_inj
+
+colnames(df_glp_hdl)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_hdl[7] = just_injected
+
+colnames(df_glp_hdl)[7] = "just_injected"
+
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_hdl[8] = hr_since_inj
+
+colnames(df_glp_hdl)[8] = "hr_since_inj"
+
+View(df_glp_hdl)
+
+# plot subject profile
+df_glp_hdl$time = factor(df_glp_hdl$time, levels = time_values, ordered=TRUE)
+df_glp_hdl$subject_num = as.factor(df_glp_hdl$subject_num)
+df_glp_hdl$just_injected = as.factor(df_glp_hdl$just_injected)
+
+pdf(file="glp_hdl_percent_change.pdf", width = 15, height = 5)
+
+ggplot(df_glp_hdl, aes(x = time, y = glp_hdl_values, group=subject_num, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Day1 5min") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 13, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("Total HDL-Cholesterol Percent Change - GLP Study") +
+  geom_text(aes(x=0.8, label="1st injection", y = 110), color="black", angle=90) +
+  
+  geom_text(aes(x=6.8, label="5th injection", y = 110), color="black", angle=90) +
+  
+  geom_text(aes(x=12.8, label="13th injection", y = 110), color="black", angle=90)
+dev.off()
+
+#population profile
+df_summ = data_summary(df_glp_hdl, varname="glp_hdl_values", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_hdl_pop_profile.pdf", width = 17, height = 6)
+
+ggplot(df_summ, aes(x = time, y = glp_hdl_values, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=glp_hdl_values-sd, ymax=glp_hdl_values+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - HDL-Cholesterol Percent Change Over Time", x="Time", y = "Cholesterol Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# GLP HDL Mixed Model
+
+df_glp_hdl = df_glp_hdl %>%
+    mutate(total_hr = case_when(  time == "Day 1 5m" ~ 0.0833,
+                                  time == "Day 1 2h" ~ 2,
+                                time == "Day 1 4h" ~ 4,
+                                time == "Day 1 12h" ~ 12,
+                                time == "Day 2 24h" ~ 24,
+                                time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.0833,
+                                time == "Day 9 2h" ~ 194,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 9 12h" ~ 204,
+                                time == "Day 10 24h" ~ 216,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.0833,
+                               time == "Day 25 2h" ~ 578,
+                               time == "Day 25 4h" ~ 580,
+                               time == "Day 25 12h" ~ 588,
+                               time == "Day 26 24h" ~ 600,
+                               time == "Day 27 48h" ~ 624))
+
+#see treatment effect
+hr_since_inj_quadratic = hr_since_inj*hr_since_inj
+
+lmer_glp_hdl <- lmer(glp_hdl_values ~ total_hr + treat +
+                              hr_since_inj + hr_since_inj_quadratic + (1 | subject_num), 
+                              df_glp_hdl)
+
+plot(lmer_glp_hdl)
+summ(lmer_glp_hdl)
+ranova(lmer_glp_hdl)
+
+report(lmer_glp_hdl)
+
+# see dose effect
+hr_since_inj_quadratic = hr_since_inj*hr_since_inj
+
+lmer_glp_hdl <- lmer(glp_hdl_values ~ total_hr + as.factor(dose) +
+                              hr_since_inj + hr_since_inj_quadratic + (1 | subject_num), 
+                              df_glp_hdl)
+
+plot(lmer_glp_hdl)
+summ(lmer_glp_hdl)
+ranova(lmer_glp_hdl)
+
+report(lmer_glp_hdl)
+```
+
+```{r}
+#GLP IDEXX LDL CHOL DATA WRANGLING
+glp_LDL <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "GLP IDEXX Individual Data.xlsx"), sheet = "glp_LDL_chol")
+
+glp_LDL_values = as.vector(t(glp_LDL[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_LDL$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_LDL_values)
+
+df_glp_LDL = data.frame(subject_num, glp_LDL_values)
+
+time_values = as.vector(colnames(glp_LDL))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_LDL[3] = time
+
+colnames(df_glp_LDL)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_LDL[4] = dose
+
+colnames(df_glp_LDL)[4] = "dose"
+
+View(df_glp_LDL)
+
+treat_values = numeric()
+
+for (d in df_glp_LDL$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_LDL[5] = treat_values
+
+colnames(df_glp_LDL)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_LDL[6] = total_num_inj
+
+colnames(df_glp_LDL)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_LDL[7] = just_injected
+
+colnames(df_glp_LDL)[7] = "just_injected"
+
+
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_LDL[8] = hr_since_inj
+
+colnames(df_glp_LDL)[8] = "hr_since_inj"
+
+View(df_glp_LDL)
+
+#population profile
+df_glp_LDL$time = factor(df_glp_LDL$time, levels = time_values, ordered=TRUE)
+df_summ = data_summary(df_glp_LDL, varname="glp_LDL_values", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+View(df_summ)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_LDL_pop_profile.pdf", width = 17, height = 6)
+
+ggplot(df_summ, aes(x = time, y = glp_LDL_values, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=glp_LDL_values-sd, ymax=glp_LDL_values+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - LDL-Cholesterol Percent Change Over Time", x="Time", y = "LDL Cholesterol Percentage Change From Day 1 5min", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+#DRF Study, TG Percent change
+drf_tg <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "TG_percent_change")
+
+View(drf_tg)
+
+subject_values = as.vector(colnames(drf_tg))
+
+counter = 1
+rep_times = c(rep(3,4), rep(13, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_drf_tg = data.frame(subject)
+
+tg = numeric()
+
+for(i in 1:ncol(drf_tg)) {       # for-loop over columns
+  tg = append(tg, as.vector(t(drf_tg[i])))
+}
+
+tg = tg[!is.na(tg)]
+
+df_drf_tg = cbind(df_drf_tg, tg)
+
+View(df_drf_tg)
+
+df_drf_tg$time = drf_chol$time
+
+df_drf_tg$dose = drf_chol$dose
+
+df_drf_tg$just_injected = drf_chol$just_injected
+
+df_drf_tg$hr_since_inj = drf_chol$hr_since_inj
+
+df_drf_tg$total_num_inj = drf_chol$total_num_inj
+
+df_drf_tg$treat = drf_chol$treat
+
+View(df_drf_tg)
+
+df_drf_tg$time = factor(df_drf_tg$time, 
+                                 levels = df_drf_tg$time [13:25], ordered=TRUE)
+df_drf_tg$subject = as.factor(df_drf_tg$subject)
+df_drf_tg$just_injected = as.factor(df_drf_tg$just_injected)
+
+View(df_drf_tg)
+
+#subject profile
+pdf(file="drf_tg_percent_change.pdf", width = 11, height = 5)
+
+ggplot(df_drf_tg, aes(x = time, y = tg, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 2, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 8, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("Triglycerides Percent Change - DRF Study") +
+  geom_text(aes(x=1.8, label="1st injection", y = 500), color="black", angle=90) +
+  
+  geom_text(aes(x=7.8, label="5th injection", y = 500), color="black", angle=90)
+  
+dev.off()
+
+#pop profile
+df_summ = data_summary(df_drf_tg, varname="tg", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_tg_pop_profile.pdf", width = 13, height = 6)
+
+ggplot(df_summ, aes(x = time, y = tg, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=tg-sd, ymax=tg+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Triglycerides Percent Change", x="Time", y = "Triglycerides Percent Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+```
+
+```{r}
+#lmer models DRF Study Triglycerides
+df_drf_tg$injected_10min = ifelse(df_drf_tg$hr_since_inj == 0.167, 1, 0)
+df_drf_tg$injected_2hr = ifelse(df_drf_tg$hr_since_inj == 2, 1, 0)
+df_drf_tg$injected_4hr = ifelse(df_drf_tg$hr_since_inj == 4, 1, 0)
+df_drf_tg$injected_12hr = ifelse(df_drf_tg$hr_since_inj == 12, 1, 0)
+df_drf_tg$injected_24hr = ifelse(df_drf_tg$hr_since_inj == 24, 1, 0)
+
+df_drf_tg = df_drf_tg %>%
+    mutate(total_hr = case_when(time == "Baseline" ~ 0,
+                                  time == "D1 10min" ~ 0.167,
+                                  time == "D1 2hr" ~ 2,
+                                time == "D1 4hr" ~ 4,
+                                time == "D1 12hr" ~ 12,
+                                time == "D1 24hr" ~ 24,
+                                time == "D1 48hr" ~ 48,
+                                time == "D9 10min" ~ 192.167,
+                                time == "D9 2hr" ~ 194,
+                                time == "D9 4hr" ~ 196,
+                                time == "D9 12hr" ~ 204,
+                                time == "D9 24hr" ~ 216,
+                                time == "D9 48hr" ~ 240))
+
+View(df_drf_tg)
+
+# see post-injection effect
+lmer_drf_tg = lmer(tg ~ total_hr +  treat + as.factor(hr_since_inj) + 
+                 (1 | subject), df_drf_tg)
+
+plot(lmer_drf_tg)
+summ(lmer_drf_tg)
+ranova(lmer_drf_tg)
+
+report(lmer_drf_tg)
+
+```
+
+```{r}
+# GLP Triglycerides
+glp_tg <- read_xlsx(file.path(datadir, "GLP IDEXX Individual Data.xlsx"), sheet = "tg")
+
+glp_tg_values = as.vector(t(glp_tg[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_tg$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_tg_values)
+
+df_glp_tg = data.frame(subject_num, glp_tg_values)
+
+time_values = as.vector(colnames(glp_tg))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_tg[3] = time
+
+colnames(df_glp_tg)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_tg[4] = dose
+
+colnames(df_glp_tg)[4] = "dose"
+
+View(df_glp_tg)
+
+treat_values = numeric()
+
+for (d in df_glp_tg$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_tg[5] = treat_values
+
+colnames(df_glp_tg)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_tg[6] = total_num_inj
+
+colnames(df_glp_tg)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_tg[7] = just_injected
+
+colnames(df_glp_tg)[7] = "just_injected"
+
+
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_tg[8] = hr_since_inj
+
+colnames(df_glp_tg)[8] = "hr_since_inj"
+
+View(df_glp_tg)
+```
+
+```{r}
+# GLP TG Plot and Models
+# plot subject profile
+df_glp_tg$time = factor(df_glp_tg$time, levels = time_values, ordered=TRUE)
+df_glp_tg$subject_num = as.factor(df_glp_tg$subject_num)
+df_glp_tg$just_injected = as.factor(df_glp_tg$just_injected)
+
+pdf(file="glp_tg_percent_change.pdf", width = 15, height = 5)
+
+ggplot(df_glp_tg, aes(x = time, y = glp_tg_values, group=subject_num, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Day1 5min") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 13, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("Triglycerides Percent Change - GLP Study") +
+  geom_text(aes(x=0.8, label="1st injection", y = 500), color="black", angle=90) +
+  
+  geom_text(aes(x=6.8, label="5th injection", y = 500), color="black", angle=90) +
+  
+  geom_text(aes(x=12.8, label="13th injection", y = 500), color="black", angle=90)
+dev.off()
+
+# plot populatiojn profile
+#population profile
+df_summ = data_summary(df_glp_tg, varname="glp_tg_values", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_tg_pop_profile.pdf", width = 17, height = 6)
+
+ggplot(df_summ, aes(x = time, y = glp_tg_values, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=glp_tg_values-sd, ymax=glp_tg_values+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - Triglycerides Percent Change Over Time", x="Time", y = "Triglycerides Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# GLP TG Mixed Model
+df_glp_tg = df_glp_tg %>%
+    mutate(total_hr = case_when(  time == "Day 1 5m" ~ 0.0833,
+                                  time == "Day 1 2h" ~ 2,
+                                time == "Day 1 4h" ~ 4,
+                                time == "Day 1 12h" ~ 12,
+                                time == "Day 2 24h" ~ 24,
+                                time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.0833,
+                                time == "Day 9 2h" ~ 194,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 9 12h" ~ 204,
+                                time == "Day 10 24h" ~ 216,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.0833,
+                               time == "Day 25 2h" ~ 578,
+                               time == "Day 25 4h" ~ 580,
+                               time == "Day 25 12h" ~ 588,
+                               time == "Day 26 24h" ~ 600,
+                               time == "Day 27 48h" ~ 624))
+
+#see treatment effect
+hr_since_inj_quadratic = hr_since_inj*hr_since_inj
+
+lmer_glp_tg <- lmer(glp_tg_values ~ total_hr + treat +
+                              hr_since_inj + hr_since_inj_quadratic + (1 | subject_num), 
+                              df_glp_tg)
+
+plot(lmer_glp_tg)
+summ(lmer_glp_tg)
+ranova(lmer_glp_tg)
+
+report(lmer_glp_tg)
+
+#see dose effect
+hr_since_inj_quadratic = hr_since_inj*hr_since_inj
+
+lmer_glp_tg <- lmer(glp_tg_values ~ total_hr + as.factor(dose) +
+                              hr_since_inj + hr_since_inj_quadratic + (1 | subject_num), 
+                              df_glp_tg)
+
+plot(lmer_glp_tg)
+summ(lmer_glp_tg)
+ranova(lmer_glp_tg)
+
+report(lmer_glp_tg)
+
+# see effect by time since injection indicator variables
+hr_since_inj_quadratic = hr_since_inj*hr_since_inj
+
+lmer_glp_tg <- lmer(glp_tg_values ~ total_hr + treat +
+                              as.factor(hr_since_inj) + treat*as.factor(hr_since_inj) + (1 | subject_num), df_glp_tg)
+
+plot(lmer_glp_tg)
+summ(lmer_glp_tg)
+ranova(lmer_glp_tg)
+
+report(lmer_glp_tg)
+
+```
+
+```{r}
+# DRF Study ApoE Percent Change
+drf_apoe <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "apoe_percent_change")
+
+View(drf_apoe)
+
+subject_values = as.vector(colnames(drf_apoe))
+
+counter = 1
+rep_times = c(rep(3,4), rep(13, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_drf_apoe = data.frame(subject)
+
+apoe = numeric()
+
+for(i in 1:ncol(drf_apoe)) {       # for-loop over columns
+  apoe = append(apoe, as.vector(t(drf_apoe[i])))
+}
+
+apoe = apoe[!is.na(apoe)]
+
+df_drf_apoe = cbind(df_drf_apoe, apoe)
+
+View(df_drf_apoe)
+
+df_drf_apoe$time = drf_chol$time
+
+df_drf_apoe$dose = drf_chol$dose
+
+df_drf_apoe$just_injected = drf_chol$just_injected
+
+df_drf_apoe$hr_since_inj = drf_chol$hr_since_inj
+
+df_drf_apoe$total_num_inj = drf_chol$total_num_inj
+
+df_drf_apoe$treat = drf_chol$treat
+
+View(df_drf_apoe)
+
+df_drf_apoe$time = factor(df_drf_apoe$time, 
+                                 levels = df_drf_apoe$time [13:25], ordered=TRUE)
+df_drf_apoe$subject = as.factor(df_drf_apoe$subject)
+df_drf_apoe$just_injected = as.factor(df_drf_apoe$just_injected)
+
+View(df_drf_apoe)
+
+# plot subject profile
+pdf(file="drf_apoe_percent_change.pdf", width = 11, height = 5)
+
+ggplot(df_drf_apoe, aes(x = time, y = apoe, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 2, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 8, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("ApoE Percent Change - DRF Study") +
+  geom_text(aes(x=1.8, label="1st injection", y = 200), color="black", angle=90) +
+  
+  geom_text(aes(x=7.8, label="5th injection", y = 200), color="black", angle=90)
+  
+dev.off()
+
+# plot population profile
+df_summ = data_summary(df_drf_apoe, varname="apoe", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_apoe_pop_profile.pdf", width = 13, height = 6)
+
+ggplot(df_summ, aes(x = time, y = apoe, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=apoe-sd, ymax=apoe+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Plasma ApoE Percent Change", x="Time", y = "ApoE Percent Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+#lmer models DRF Study ApoE
+
+df_drf_apoe = df_drf_apoe %>%
+    mutate(total_hr = case_when(time == "Baseline" ~ 0,
+                                  time == "D1 10min" ~ 0.167,
+                                  time == "D1 2hr" ~ 2,
+                                time == "D1 4hr" ~ 4,
+                                time == "D1 12hr" ~ 12,
+                                time == "D1 24hr" ~ 24,
+                                time == "D1 48hr" ~ 48,
+                                time == "D9 10min" ~ 192.167,
+                                time == "D9 2hr" ~ 194,
+                                time == "D9 4hr" ~ 196,
+                                time == "D9 12hr" ~ 204,
+                                time == "D9 24hr" ~ 216,
+                                time == "D9 48hr" ~ 240))
+
+
+lmer_drf_apoe = lmer(apoe ~ total_hr +  treat + as.factor(hr_since_inj) + 
+                 (1 | subject), df_drf_apoe)
+
+plot(lmer_drf_apoe)
+summ(lmer_drf_apoe)
+ranova(lmer_drf_apoe)
+
+report(lmer_drf_apoe)
+
+```
+
+```{r}
+#GLP Study ApoE
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/data"
+glp_apoe <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "ApoE")
+
+View(glp_apoe)
+
+subject_values = as.vector(colnames(glp_apoe))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_apoe = data.frame(subject)
+
+apoe = numeric()
+
+for(i in 1:ncol(glp_apoe)) {       # for-loop over columns
+  apoe = append(apoe, as.vector(t(glp_apoe[i])))
+}
+
+apoe = apoe[!is.na(apoe)]
+
+df_glp_apoe = cbind(df_glp_apoe, apoe)
+
+View(df_glp_apoe)
+
+df_glp_apoe$time = glpab42$time
+
+df_glp_apoe$dose = glpab42$dose
+
+df_glp_apoe$just_injected = glpab42$just_injected
+
+df_glp_apoe$total_num_inj = glpab42$total_num_inj
+
+df_glp_apoe$treat = glpab42$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+length(hr_since_values)
+
+df_glp_apoe$hr_since_inj = hr_since_values
+
+View(df_glp_apoe)
+
+df_glp_apoe$time = factor(df_glp_apoe$time, 
+                                 levels = df_glp_apoe$time [25:33], ordered=TRUE)
+df_glp_apoe$subject = as.factor(df_glp_apoe$subject)
+df_glp_apoe$just_injected = as.factor(df_glp_apoe$just_injected)
+
+View(df_glp_apoe)
+
+# subject profile
+pdf(file="glp_apoe_percent_change.pdf", width = 11, height = 5)
+
+ggplot(df_glp_apoe, aes(x = time, y = apoe, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage Change from Day 1 5m") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 4, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("ApoE Percent Change - GLP Study") +
+  geom_text(aes(x=0.8, label="1st injection", y = 200), color="black", angle=90) +
+  
+  geom_text(aes(x=3.8, label="5th injection", y = 200), color="black", angle=90) +
+  
+  geom_text(aes(x=6.8, label="13th injection", y = 200), color="black", angle=90)
+dev.off()
+
+# pop profile
+df_summ = data_summary(df_glp_apoe, varname="apoe", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_apoe_pop_profile.pdf", width = 13, height = 6)
+
+ggplot(df_summ, aes(x = time, y = apoe, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=apoe-sd, ymax=apoe+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - ApoE Percent Change Over Time", x="Time", y = "ApoE Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# coding total time elapsed since start of study
+df_glp_apoe = df_glp_apoe %>%
+    mutate(total_hr = case_when(  time == "Day 1 5m" ~ 0.0833,
+                                time == "Day 1 4h" ~ 4,
+                                time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.0833,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.0833,
+                               time == "Day 25 4h" ~ 580,
+                               time == "Day 27 48h" ~ 624))
+# GLP Study ApoE Mixed Models
+
+# setting baseline to 100
+df_glp_apoe[df_glp_apoe$time == "Day 1 5m",]$apoe = df_glp_apoe[df_glp_apoe$time == "Day 1 5m",]$apoe = 100
+
+lmer_glp_apoe <- lmer(apoe ~ treat + total_hr + as.factor(hr_since_inj) + treat*as.factor(hr_since_inj) + (1 | subject), df_glp_apoe)
+
+plot(lmer_glp_apoe)
+summ(lmer_glp_apoe)
+ranova(lmer_glp_apoe)
+
+report(lmer_glp_apoe)
+
+```
+
+
+```{r}
+# Pre-Beta San diego Monkeys
+
+prebeta <- read_xlsx(file.path(datadir, "Pre-Beta.xlsx"), sheet = "Sheet1")
+View(prebeta)
+
+subject = c(rep(1001, 11), rep(1002, 11))
+
+df_prebeta = data.frame(subject)
+
+pla_prebeta = numeric()
+
+View(df_prebeta)
+
+for(i in 2:ncol(prebeta)) {       # for-loop over columns
+  pla_prebeta = append(pla_prebeta, as.vector(t(prebeta[i])))
+}
+
+df_prebeta = cbind(df_prebeta, pla_prebeta)
+
+View(df_prebeta)
+
+time_values = rep(prebeta$time, 2)
+
+df_prebeta$time = time_values
+
+df_prebeta$hr_since_inj = rep(c(0, 0.083, 0.5, 1, 2, 4, 6, 12, 24, 48, 72), 2)
+
+View(df_prebeta)
+
+df_prebeta$time = factor(df_prebeta$time, 
+                                 levels = prebeta$time [1:11], ordered=TRUE)
+
+df_prebeta$subject = as.factor(df_prebeta$subject)
+
+View(df_prebeta)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_sandiego_prebeta.pdf", width = 11, height = 5)
+
+ggplot(df_prebeta, aes(x = time, y = pla_prebeta, group=subject, color = subject)) +
+  labs(color = "Subject") +
+  scale_color_manual(values=c("blue", "orange")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  theme_pubr()
+dev.off()
+
+#prebeta mixed models
+lmer_prebeta <- lmer(pla_prebeta ~ as.factor(hr_since_inj) + (1 | subject), df_prebeta)
+
+plot(lmer_prebeta)
+summ(lmer_prebeta)
+ranova(lmer_prebeta)
+
+report(lmer_prebeta)
+```
+
+```{r}
+# GLP HDL-c to ApoA1 Ratio
+glp_hdl_ratio <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "hdl-c to apoa1 ratio")
+
+View(glp_hdl_ratio)
+
+subject_values = as.vector(colnames(glp_hdl_ratio))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_hdl_ratio = data.frame(subject)
+
+hdl_ratio = numeric()
+
+for(i in 1:ncol(glp_hdl_ratio)) {       # for-loop over columns
+  hdl_ratio = append(hdl_ratio, as.vector(t(glp_hdl_ratio[i])))
+}
+
+hdl_ratio = hdl_ratio[!is.na(hdl_ratio)]
+
+df_glp_hdl_ratio = cbind(df_glp_hdl_ratio, hdl_ratio)
+
+View(df_glp_hdl_ratio)
+
+df_glp_hdl_ratio$time = glpab42$time
+
+df_glp_hdl_ratio$dose = glpab42$dose
+
+df_glp_hdl_ratio$just_injected = glpab42$just_injected
+
+df_glp_hdl_ratio$total_num_inj = glpab42$total_num_inj
+
+df_glp_hdl_ratio$treat = glpab42$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+length(hr_since_values)
+
+df_glp_hdl_ratio$hr_since_inj = hr_since_values
+
+View(df_glp_hdl_ratio)
+
+df_glp_hdl_ratio$time = factor(df_glp_hdl_ratio$time, 
+                                 levels = df_glp_hdl_ratio$time [25:33], ordered=TRUE)
+df_glp_hdl_ratio$subject = as.factor(df_glp_hdl_ratio$subject)
+df_glp_hdl_ratio$just_injected = as.factor(df_glp_hdl_ratio$just_injected)
+
+View(df_glp_hdl_ratio)
+
+df_glp_hdl_ratio$hdl_ratio[16] = 180.7728
+
+df_glp_hdl_ratio$inj_4hrs_ago[25:length(df_glp_hdl_ratio$time)] = rep(rep(c(0,1,0),3),12)
+
+# subject profile
+pdf(file="glp_hdl_ratio_percent_change.pdf", width = 11, height = 5)
+
+ggplot(df_glp_hdl_ratio, aes(x = time, y = hdl_ratio, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage Change from Day 1 5m") +
+  geom_vline(xintercept = 1, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 4, linetype="dotted", 
+                color = "black", size=1.5) +
+  geom_vline(xintercept = 7, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("HDL-c to ApoA1 Ratio Percent Change - GLP Study") +
+  geom_text(aes(x=0.8, label="1st injection", y = 400), color="black") +
+  
+  geom_text(aes(x=3.8, label="5th injection", y = 400), color="black") +
+  
+  geom_text(aes(x=6.8, label="13th injection", y = 400), color="black")
+dev.off()
+
+# pop profile
+
+df_summ = data_summary(df_glp_hdl_ratio, varname="hdl_ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_hdl_ratio_pop_profile.pdf", width = 13, height = 6)
+
+ggplot(df_summ, aes(x = time, y = hdl_ratio, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=hdl_ratio-sd, ymax=hdl_ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study - HDL-c to ApoA1 Ratio Percent Change Over Time", x="Time", y = "HDL-c to ApoA1 Ratio Percent Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+
+# pop profile but placebo are only dots
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_glp_hdl_ratio_pop_profile_new.pdf", width = 13, height = 6)
+ggplot(subset(df_summ, dose != 0), aes(x = time, y = hdl_ratio, group = dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point() +
+  geom_point(subset(df_summ, dose == 0), mapping = aes(x = time, y = hdl_ratio)) +
+  geom_errorbar(df_summ, mapping = aes(ymin=hdl_ratio-sd, ymax=hdl_ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  labs(title="GLP Study - HDL-c to ApoA1 Ratio Percent Change Over Time", x="Time", y = "HDL-c to ApoA1 Ratio Percent Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# GLP Study hdl_ratio Mixed Models
+
+# Overall Model 
+# coding total time elapsed since start of study
+df_glp_hdl_ratio = df_glp_hdl_ratio %>%
+    mutate(total_hr = case_when(  time == "Day 1 5m" ~ 0.0833,
+                                time == "Day 1 4h" ~ 4,
+                                time == "Day 3 48h" ~ 48,
+                                time == "Day 9 5m" ~ 192.0833,
+                                time == "Day 9 4h" ~ 196,
+                                time == "Day 11 48h" ~ 240,
+                                time == "Day 25 5m" ~ 576.0833,
+                               time == "Day 25 4h" ~ 580,
+                               time == "Day 27 48h" ~ 624))
+# GLP Study hdl_ratio Mixed Models
+# Overall Model 
+lmer_glp_hdl_ratio <- lmer(hdl_ratio ~ treat + total_hr + as.factor(hr_since_inj) + (1 | subject), df_glp_hdl_ratio)
+
+plot(lmer_glp_hdl_ratio)
+summ(lmer_glp_hdl_ratio)
+ranova(lmer_glp_hdl_ratio)
+
+report(lmer_glp_hdl_ratio)
+
+# running an extra lmer model, no placebo, remove total_hr, add new var for cycle (day 1- cycle 1, day 9-cycle 2, day 25, cycle 3), remove interaction
+df_glp_hdl_ratio = df_glp_hdl_ratio %>%
+  mutate(cycle_num = case_when(total_hr <= 48 ~ 1,
+                               total_hr <= 240 ~ 2,
+                               total_hr <= 624 ~ 3))
+
+df_glp_hdl_ratio = df_glp_hdl_ratio %>%
+  mutate(injected_4hr = case_when(hr_since_inj == 4 ~ 1,
+                                  hr_since_inj != 4 ~ 0))
+
+df_glp_hdl_ratio = df_glp_hdl_ratio %>%
+  mutate(injected_48hr = case_when(hr_since_inj == 48 ~ 1,
+                                   hr_since_inj != 48 ~ 0))
+  
+df_glp_hdl_ratio$cycle_num = as.factor(df_glp_hdl_ratio$cycle_num)
+
+df_glp_hdl_ratio$dose = as.factor(df_glp_hdl_ratio$dose)
+
+lmer_glp_hdl_ratio = lmer(hdl_ratio ~ dose + cycle_num + injected_4hr + injected_48hr  + (1 | subject), subset(df_glp_hdl_ratio, treat == 1))
+report(lmer_glp_hdl_ratio)
+```
+
+
+
+```{r}
+# Linear Models:
+
+#DRF Study CSF AB42:
+
+drf_csfab42 <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "CSF AB42")
+
+View(drf_csfab42)
+
+subject_values = as.vector(colnames(drf_csfab42))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_csfab42 = data.frame(subject)
+
+csfab42 = numeric()
+
+for(i in 1:length(colnames(drf_csfab42))) {       # for-loop over columns
+  csfab42 = append(csfab42, as.vector(t(drf_csfab42[i])))
+}
+
+df_drf_csfab42 = cbind(df_drf_csfab42, csfab42)
+
+View(df_drf_csfab42)
+
+df_drf_csfab42$time = rep(c("Baseline", "Day 9 6hrs"), 15)
+
+df_drf_csfab42$dose = c(rep(0, 8), rep(75, 8), rep(150, 8), rep(225, 6))
+
+View(df_drf_csfab42)
+
+df_drf_csfab42$time = factor(df_drf_csfab42$time, 
+                                 levels = df_drf_csfab42$time [1:2], ordered=TRUE)
+df_drf_csfab42$subject = as.factor(df_drf_csfab42$subject)
+
+df_drf_csfab42$total_num_inj = rep(c(0,5), 15)
+  
+View(df_drf_csfab42)
+
+# subject profile
+pdf(file="drf_csfab42_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_csfab42, aes(x = time, y = csfab42, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("csfab42 Percent Change - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 150), color="black")
+  
+dev.off()
+
+# population profile
+df_summ = data_summary(df_drf_csfab42, varname="csfab42", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_csfab42_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = csfab42, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=csfab42-sd, ymax=csfab42+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - CSF AB42", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_csfab42$dose = as.factor(df_drf_csfab42$dose)
+df_drf_csfab42$time = as.factor(df_drf_csfab42$time)
+df_drf_csfab42$treatment_group = ifelse(df_drf_csfab42$dose == 0, 0, 1)
+df_drf_csfab42$after_injection = ifelse(df_drf_csfab42$time == "Baseline", 0, 1)
+
+
+report(lm(csfab42 ~ dose + after_injection + dose*after_injection, df_drf_csfab42))
+
+```
+
+
+```{r}
+# DRF Study CSF AB40
+
+drf_csfab40 <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "CSF AB40")
+
+View(drf_csfab40)
+
+subject_values = as.vector(colnames(drf_csfab40))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_csfab40 = data.frame(subject)
+
+csfab40 = numeric()
+
+for(i in 1:length(colnames(drf_csfab40))) {       # for-loop over columns
+  csfab40 = append(csfab40, as.vector(t(drf_csfab40[i])))
+}
+
+#csfab40 = csfab40[!is.na(csfab40)]
+
+df_drf_csfab40 = cbind(df_drf_csfab40, csfab40)
+
+View(df_drf_csfab40)
+
+df_drf_csfab40$time = rep(c("Baseline", "Day 9 6hrs"), 15)
+
+df_drf_csfab40$dose = c(rep(0, 8), rep(75, 8), rep(150, 8), rep(225, 6))
+
+View(df_drf_csfab40)
+
+df_drf_csfab40$time = factor(df_drf_csfab40$time, 
+                                 levels = df_drf_csfab40$time [1:2], ordered=TRUE)
+df_drf_csfab40$subject = as.factor(df_drf_csfab40$subject)
+
+df_drf_csfab40$total_num_inj = rep(c(0,5), 15)
+
+df_drf_csfab40$treat = c(rep(0, 8), rep(1, 22))
+  
+View(df_drf_csfab40)
+
+# subject profile
+pdf(file="drf_csfab40_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_csfab40, aes(x = time, y = csfab40, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("csfab40 Percent Change - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 150), color="black")
+  
+dev.off()
+
+report(lm(csfab40 ~ dose, df_drf_csfab40))
+
+# population profile
+df_summ = data_summary(df_drf_csfab40, varname="csfab40", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_csfab40_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = csfab40, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=csfab40-sd, ymax=csfab40+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - CSF AB40", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_csfab40$dose = as.factor(df_drf_csfab40$dose)
+df_drf_csfab40$time = as.factor(df_drf_csfab40$time)
+df_drf_csfab40$treatment_group = ifelse(df_drf_csfab40$dose == 0, 0, 1)
+df_drf_csfab40$after_injection = ifelse(df_drf_csfab40$time == "Baseline", 0, 1)
+
+
+report(lm(csfab40 ~ dose + after_injection + dose*after_injection, df_drf_csfab40))
+
+# box plot CSF AB40
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_csfab40 = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "CSFAB40")
+head(df_csfab40)
+
+percent_change = (subset(df_csfab40, time == "day9")$value - subset(df_csfab40, time == "pre")$value) / subset(df_csfab40, time == "pre")$value
+dose = c(rep(1, 4), rep(2, 4), rep(3, 4), rep(4, 3))
+
+df_change= as.tibble(cbind(percent_change, dose))
+View(df_change)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_csfab40.pdf", width = 6, height = 6)
+
+ggplot(df_change, aes(x=as.factor(dose), y=percent_change, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in CSF AB40",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# DRF Study CSF AB42:40 Ratio
+
+drf_csf4240ratio <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "CSF4240Ratio")
+
+View(drf_csf4240ratio)
+
+subject_values = as.vector(colnames(drf_csf4240ratio))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_csf4240ratio = data.frame(subject)
+
+csf4240ratio = numeric()
+
+for(i in 1:length(colnames(drf_csf4240ratio))) {       # for-loop over columns
+  csf4240ratio = append(csf4240ratio, as.vector(t(drf_csf4240ratio[i])))
+}
+
+#csf4240ratio = csf4240ratio[!is.na(csf4240ratio)]
+
+df_drf_csf4240ratio = cbind(df_drf_csf4240ratio, csf4240ratio)
+
+View(df_drf_csf4240ratio)
+
+df_drf_csf4240ratio$time = rep(c("Baseline", "Day 9 6hrs"), 15)
+
+df_drf_csf4240ratio$dose = c(rep(0, 8), rep(75, 8), rep(150, 8), rep(225, 6))
+
+View(df_drf_csf4240ratio)
+
+df_drf_csf4240ratio$time = factor(df_drf_csf4240ratio$time, 
+                                 levels = df_drf_csf4240ratio$time [1:2], ordered=TRUE)
+df_drf_csf4240ratio$subject = as.factor(df_drf_csf4240ratio$subject)
+
+df_drf_csf4240ratio$total_num_inj = rep(c(0,5), 15)
+
+df_drf_csf4240ratio$treat = c(rep(0, 8), rep(1, 22))
+  
+View(df_drf_csf4240ratio)
+
+# subject profile
+pdf(file="drf_csf4240ratio_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_csf4240ratio, aes(x = time, y = csf4240ratio, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("csf4240ratio Percent Change - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 100), color="black")
+  
+dev.off()
+
+report(lm(csf4240ratio ~ dose, df_drf_csf4240ratio))
+
+# population profile
+df_summ = data_summary(df_drf_csf4240ratio, varname="csf4240ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_csf4240ratio_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = csf4240ratio, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=csf4240ratio-sd, ymax=csf4240ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - CSF AB42 to AB40 ratio", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_csf4240ratio$dose = as.factor(df_drf_csf4240ratio$dose)
+df_drf_csf4240ratio$time = as.factor(df_drf_csf4240ratio$time)
+df_drf_csf4240ratio$treatment_group = ifelse(df_drf_csf4240ratio$dose == 0, 0, 1)
+df_drf_csf4240ratio$after_injection = ifelse(df_drf_csf4240ratio$time == "Baseline", 0, 1)
+
+
+report(lm(csf4240ratio ~ dose + after_injection + dose*after_injection, df_drf_csf4240ratio))
+```
+
+```{r}
+# box plot CSF AB42:AB40
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_csfratio = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "CSFAB42 40")
+head(df_csfratio)
+
+percent_change = (subset(df_csfratio, time == "day9")$value - subset(df_csfratio, time == "pre")$value) / subset(df_csfratio, time == "pre")$value
+dose = c(rep(1, 4), rep(2, 4), rep(3, 4), rep(4, 3))
+
+df_change= as_tibble(cbind(percent_change, dose))
+View(df_change)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_drf_study_csf_AB4240_ratio.pdf", width = 6, height = 6)
+
+ggplot(df_change, aes(x=as.factor(dose), y=percent_change, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in CSF AB42:40 Ratio",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# DRF Study Plasma AB42:40 Ratio
+
+drf_pla4240ratio <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "PLA4240Ratio")
+
+View(drf_pla4240ratio)
+
+subject_values = as.vector(colnames(drf_pla4240ratio))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_pla4240ratio = data.frame(subject)
+
+pla4240ratio = numeric()
+
+for(i in 1:length(colnames(drf_pla4240ratio))) {       # for-loop over columns
+  pla4240ratio = append(pla4240ratio, as.vector(t(drf_pla4240ratio[i])))
+}
+
+#pla4240ratio = pla4240ratio[!is.na(pla4240ratio)]
+
+df_drf_pla4240ratio = cbind(df_drf_pla4240ratio, pla4240ratio)
+
+View(df_drf_pla4240ratio)
+
+df_drf_pla4240ratio$time = rep(c("Baseline", "Day 9 6hrs"), 13)
+
+df_drf_pla4240ratio$dose = c(rep(0, 4), rep(75, 6), rep(150, 8), rep(225, 8))
+
+df_drf_pla4240ratio$treat = c(rep(0, 4), rep(1, 22))
+
+View(df_drf_pla4240ratio)
+
+df_drf_pla4240ratio$time = factor(df_drf_pla4240ratio$time, 
+                                 levels = df_drf_pla4240ratio$time [1:2], ordered=TRUE)
+df_drf_pla4240ratio$subject = as.factor(df_drf_pla4240ratio$subject)
+  
+df_drf_pla4240ratio$pla4240ratio[8] = 150.98
+
+df_drf_pla4240ratio$dose = factor(df_drf_pla4240ratio$dose, 
+                                 levels = c("0", "75", "150", "225"), ordered=TRUE)
+
+View(df_drf_pla4240ratio)
+
+# subject profile
+library(tidyverse)
+library(gridExtra)
+source('~/ggplot_theme_Publication-2.R')
+
+pdf(file="drf_pla4240ratio_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_pla4240ratio, aes(x = time, y = pla4240ratio, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage Change") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("Plasma AB42 to AB40 Ratio (Percentage Change) - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 100), color="black") +
+  scale_x_discrete(expand = c(0.01, 0.01)) +
+  theme_bw()
+dev.off()
+
+report(lm(pla4240ratio ~ dose, df_drf_pla4240ratio))
+
+# population profile
+df_summ = data_summary(df_drf_pla4240ratio, varname="pla4240ratio", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_pla4240ratio_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = pla4240ratio, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=pla4240ratio-sd, ymax=pla4240ratio+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Plasma AB42 to AB40 ratio", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_pla4240ratio$dose = as.factor(df_drf_pla4240ratio$dose)
+df_drf_pla4240ratio$time = as.factor(df_drf_pla4240ratio$time)
+df_drf_pla4240ratio$treatment_group = ifelse(df_drf_pla4240ratio$dose == 0, 0, 1)
+df_drf_pla4240ratio$after_injection = ifelse(df_drf_pla4240ratio$time == "Baseline", 0, 1)
+
+
+report(lm(pla4240ratio ~ dose + after_injection + dose*after_injection, df_drf_pla4240ratio))
+```
+
+```{r}
+# box plot Plasma AB42:AB40
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_plaratio = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "PLAAB42 40")
+head(df_plaratio)
+
+percent_change = (subset(df_plaratio, time == "day9")$value - subset(df_plaratio, time == "pre")$value) / subset(df_plaratio, time == "pre")$value
+dose = c(rep(1, 2), rep(2, 3), rep(3, 4), rep(4, 4))
+
+df_change= as.tibble(cbind(percent_change, dose))
+View(df_change)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_plaratio.pdf", width = 6, height = 6)
+
+ggplot(df_change, aes(x=as.factor(dose), y=percent_change, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in Plasma AB42:40 Ratio",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+#DRF Plasma AB42
+
+drf_pla_ab42 <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "PLA AB42")
+
+View(drf_pla_ab42)
+
+subject_values = as.vector(colnames(drf_pla_ab42))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_pla_ab42 = data.frame(subject)
+
+pla_ab42 = numeric()
+
+for(i in 1:length(colnames(drf_pla_ab42))) {       # for-loop over columns
+  pla_ab42 = append(pla_ab42, as.vector(t(drf_pla_ab42[i])))
+}
+
+#pla_ab42 = pla_ab42[!is.na(pla_ab42)]
+
+df_drf_pla_ab42 = cbind(df_drf_pla_ab42, pla_ab42)
+
+View(df_drf_pla_ab42)
+
+df_drf_pla_ab42$time = rep(c("Baseline", "Day 9 6hrs"), 13)
+
+df_drf_pla_ab42$dose = c(rep(0, 4), rep(75, 6), rep(150, 8), rep(225, 8))
+
+df_drf_pla_ab42$treat = c(rep(0, 4), rep(1, 22))
+
+View(df_drf_pla_ab42)
+
+df_drf_pla_ab42$time = factor(df_drf_pla_ab42$time, 
+                                 levels = df_drf_pla_ab42$time [1:2], ordered=TRUE)
+df_drf_pla_ab42$subject = as.factor(df_drf_pla_ab42$subject)
+  
+View(df_drf_pla_ab42)
+
+#subject profile
+pdf(file="drf_pla_ab42_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_pla_ab42, aes(x = time, y = pla_ab42, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("pla_ab42 Percent Change - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 100), color="black")
+  
+dev.off()
+
+report(lm(pla_ab42 ~ dose, df_drf_pla_ab42))
+
+# population profile
+df_summ = data_summary(df_drf_pla_ab42, varname="pla_ab42", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_pla_ab42_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = pla_ab42, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=pla_ab42-sd, ymax=pla_ab42+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Plasma AB42", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_pla_ab42$dose = as.factor(df_drf_pla_ab42$dose)
+df_drf_pla_ab42$time = as.factor(df_drf_pla_ab42$time)
+df_drf_pla_ab42$treatment_group = ifelse(df_drf_pla_ab42$dose == 0, 0, 1)
+df_drf_pla_ab42$after_injection = ifelse(df_drf_pla_ab42$time == "Baseline", 0, 1)
+
+
+report(lm(pla_ab42 ~ dose + after_injection + dose*after_injection, df_drf_pla_ab42))
+```
+
+```{r}
+# box plot DRF Plasma AB42
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_plaab42 = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "PLAAB42")
+head(df_plaab42)
+
+percent_change = (subset(df_plaab42, time == "day9")$value - subset(df_plaab42, time == "pre")$value) / subset(df_plaab42, time == "pre")$value
+dose = c(rep(1, 2), rep(2, 3), rep(3, 4), rep(4, 4))
+
+df_change= as.tibble(cbind(percent_change, dose))
+View(df_change)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_plaab42.pdf", width = 6, height = 6)
+
+ggplot(df_change, aes(x=as.factor(dose), y=percent_change, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in Plasma AB42",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# DRF Study, Plasma AB40
+
+drf_pla_ab40 <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "PLA AB40")
+
+View(drf_pla_ab40)
+
+subject_values = as.vector(colnames(drf_pla_ab40))
+
+subject = factor()
+
+for (v in subject_values){
+  subject = append(subject, rep(v, 2))
+}
+
+df_drf_pla_ab40 = data.frame(subject)
+
+pla_ab40 = numeric()
+
+for(i in 1:length(colnames(drf_pla_ab40))) {       # for-loop over columns
+  pla_ab40 = append(pla_ab40, as.vector(t(drf_pla_ab40[i])))
+}
+
+#pla_ab40 = pla_ab40[!is.na(pla_ab40)]
+
+df_drf_pla_ab40 = cbind(df_drf_pla_ab40, pla_ab40)
+
+View(df_drf_pla_ab40)
+
+df_drf_pla_ab40$time = rep(c("Baseline", "Day 9 6hrs"), 16)
+
+df_drf_pla_ab40$dose = c(rep(0, 8), rep(75, 8), rep(150, 8), rep(225, 8))
+
+df_drf_pla_ab40$treat = c(rep(0, 8), rep(1, 24))
+
+View(df_drf_pla_ab40)
+
+df_drf_pla_ab40$time = factor(df_drf_pla_ab40$time, 
+                                 levels = df_drf_pla_ab40$time [1:2], ordered=TRUE)
+df_drf_pla_ab40$subject = as.factor(df_drf_pla_ab40$subject)
+  
+View(df_drf_pla_ab40)
+
+# subject profile
+pdf(file="drf_pla_ab40_percent_change.pdf", width = 8, height = 5)
+
+ggplot(df_drf_pla_ab40, aes(x = time, y = pla_ab40, group=subject, color = as.factor(dose))) +
+  labs(color = "Dose (mg/kg)") +
+  scale_color_manual(values=c("blue", "yellow", "orange", "red")) +
+  geom_point() +
+  geom_line() +
+  xlab(label = "Time") +
+  ylab(label = "Percentage From Baseline") +
+  geom_vline(xintercept = 1.5, linetype="dotted", 
+                color = "black", size=1.5) +
+  ggtitle("pla_ab40 Percent Change - DRF Study") +
+  geom_text(aes(x=1.5, label="5th injection", y = 100), color="black")
+  
+dev.off()
+
+report(lm(pla_ab40 ~ dose, df_drf_pla_ab40))
+
+# population profile
+df_summ = data_summary(df_drf_pla_ab40, varname="pla_ab40", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/plot_drf_pla_ab40_pop_profile.pdf", width = 6, height = 6)
+
+ggplot(df_summ, aes(x = time, y = pla_ab40, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red", "black")) +
+  geom_errorbar(aes(ymin=pla_ab40-sd, ymax=pla_ab40+sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study - Plasma AB40", x="Time", y = "Percentage Change", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+
+# linear model
+df_drf_pla_ab40$dose = as.factor(df_drf_pla_ab40$dose)
+df_drf_pla_ab40$time = as.factor(df_drf_pla_ab40$time)
+df_drf_pla_ab40$treatment_group = ifelse(df_drf_pla_ab40$dose == 0, 0, 1)
+df_drf_pla_ab40$after_injection = ifelse(df_drf_pla_ab40$time == "Baseline", 0, 1)
+
+
+report(lm(pla_ab40 ~ dose + after_injection + dose*after_injection, df_drf_pla_ab40))
+```
+
+```{r}
+# box plot DRF Plasma AB40
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_plaab40 = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "PLAAB40")
+head(df_plaab40)
+
+percent_change = (subset(df_plaab40, time == "day9")$value - subset(df_plaab40, time == "pre")$value) / subset(df_plaab40, time == "pre")$value
+dose = c(rep(1, 4), rep(2, 4), rep(3, 4), rep(4, 4))
+
+df_change= as.tibble(cbind(percent_change, dose))
+View(df_change)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/results/plot_box_plaab40.pdf", width = 6, height = 6)
+
+ggplot(df_change, aes(x=as.factor(dose), y=percent_change, fill=as.factor(dose))) +
+  geom_boxplot()+ stat_compare_means(label = "p.format", comparisons = list(c("1", "2"), c("1", "3"), c("1", "4"))) +
+  labs(fill = "Dose", title="Percentage Change in Plasma AB40",
+        x ="Dose", y = "Percent Change from Baseline") +
+  stat_boxplot(geom = "errorbar") +
+  scale_fill_grey(labels = c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  scale_x_discrete(labels= c("Control", "CS 75mg/kg", "CS 150 mg/kg", "CS 225 mg/kg")) +
+  theme_pubr()
+dev.off()
+```
+
+### Ebi Data Monkey Study
+```{r}
+# Read in Monkey Plasma
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/dr zandi/monkey"
+df_ebi_monkey_plasma = read_xlsx(file.path(datadir, "All_Monkey_Organized.xlsx"), sheet = "all_plasma")
+head(df_ebi_monkey_plasma)
+
+#calculate percentage values for all variables using each monkey's day1 5m as 100%
+df_percent = data.frame()
+for (id in c(1004, 1504, 4004, 4504)){
+  df_temp = subset(df_ebi_monkey_plasma, ID == id, select = -(ID:dose))
+  for (row in 2:nrow(df_temp)){
+    df_temp[row,] = df_temp[row,]/df_temp[1,]*100
+  }
+  df_temp[1,] = 100
+  df_percent = rbind(df_percent, df_temp)
+}
+colnames(df_percent) = c("AB42_40_percent", "p181Tau_POPL_percent", "Tau441_POPL_percent", "NFL_POL_percent")
+df_percent = cbind(df_percent, subset(df_ebi_monkey_plasma, select = (ID:dose)))
+View(df_percent)
+```
+
+
+```{r}
+# calculate average Ab42/40 and sd of all monkeys at each time point
+# helper function was defined earlier
+df_summ = data_summary(df_percent, varname="AB42_40_percent", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+View(df_summ)
+
+# then plot population profile for AB-42/40 percentage of day1 5m
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/monkey/ebi_monkey_plasma_AB42_40_percent.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = AB42_40_percent, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "red")) +
+  geom_errorbar(aes(ymin=AB42_40_percent - sd, ymax=AB42_40_percent + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study Monkey Plasma AB42/40 Ratio (Data from Dr. Zandi)", x="Time", y = "Percentage of Day 1 5m (%)", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# population profile for p181Tau/POPL percent of day1 5m
+df_summ = data_summary(df_percent, varname="p181Tau_POPL_percent", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/monkey/ebi_monkey_plasma_p181Tau_POPL_percent.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = p181Tau_POPL_percent, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "red")) +
+  geom_errorbar(aes(ymin=p181Tau_POPL_percent - sd, ymax=p181Tau_POPL_percent + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study Monkey Plasma p181Tau/POPL Ratio (Data from Dr. Zandi)", x="Time", y = "p181Tau/POPL Percentage (%) of Day 1 5m", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# population profile for Tau-441_POPL Percent of Day1 5m
+df_summ = data_summary(df_percent, varname="Tau441_POPL_percent", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/monkey/ebi_monkey_plasma_Tau-441_POPL_percent.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = Tau441_POPL_percent, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "red")) +
+  geom_errorbar(aes(ymin=Tau441_POPL_percent - sd, ymax=Tau441_POPL_percent + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study Monkey Plasma Tau-441/POPL Ratio (Data from Dr. Zandi)", x="Time", y = "Tau-441/POPL Percentage (%) of Day 1 5m", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+
+```{r}
+# population profile for NFL_POL Percent of Day 1 5m
+df_summ = data_summary(df_percent, varname="NFL_POL_percent", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+df_summ$time = as.factor(df_summ$time)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/monkey/ebi_monkey_plasma_NFL_POL_percent.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = NFL_POL_percent, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "red")) +
+  geom_errorbar(aes(ymin=NFL_POL_percent - sd, ymax=NFL_POL_percent + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="GLP Study Monkey Plasma NFL/POL Ratio (Data from Dr. Zandi)", x="Time", y = "NFL/POL Ratio Percentage (%) of Day 1 5m", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+
+### Human Data - Dr Zandi Plasma Data, Dr Yassine CSF Data
+```{r}
+# Read in Human Plasma data from Dr Zandi
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/ebi/human"
+df_plasma = read_xlsx(file.path(datadir, "Human_data_Zandi_Yassin.xlsx"), sheet = "Plasma")
+colnames(df_plasma)[1] = "ID"
+head(df_plasma)
+
+# Read in Human CSF data from James
+df_csf = read_xlsx(file.path(datadir, "Matched CSF and Plasma Data James 2021-09-21 v2.xlsx"), sheet = "CSF")
+colnames(df_csf)[1] = "ID"
+head(df_csf)
+
+# check which ID's in plasma dataset are missing data from csf
+plasma_ID = df_plasma$ID
+csf_ID = df_csf$ID
+missingID = setdiff(plasma_ID, csf_ID)
+missingID
+# Read in Human CSF data from Ashley to try to find missing data
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/ebi/human"
+df_csf_ash = read_xlsx(file.path(datadir, "CSF Full Data_180 Ashley paper.xlsx"), sheet = "CSF Full Data Ashley")
+colnames(df_csf_ash)[1] = "ID"
+
+# Missing data with ID 203421 from James dataset is found in ashley dataset
+intersect(missingID, df_csf_ash$ID)
+
+# extract ptau and abeta42 data from CSF dataset (james)
+df_csf = subset(df_csf, select = c(ID, Abeta42, pTau181))
+head(df_csf)
+
+# Merge two datasets
+df_total <- merge(df_plasma, df_csf, by="ID")
+colnames(df_total)[2:5] = c("AB42_40","AvTau_pT181_AvPOPL", "AvTau441_AvPOPL", "AvNFL_AvPOPL")
+View(df_total)
+
+# merge ashley dataset with plasma dataset, then subset for only ptau and plasma data
+df_temp <- merge(df_plasma, df_csf_ash, by="ID")
+colnames(df_temp)[2:5] = c("AB42_40","AvTau_pT181_AvPOPL", "AvTau441_AvPOPL", "AvNFL_AvPOPL")
+df_temp = subset(df_temp, select = c("ID", "AB42_40","AvTau_pT181_AvPOPL", "AvTau441_AvPOPL", "AvNFL_AvPOPL", "CSF_Ab42_pgperml", "P_Tau"))
+colnames(df_temp)[6:7] = c("Abeta42", "pTau181")
+View(df_temp)
+
+# add data from ID 203421 from ashley dataset to df_total
+df_total = rbind(df_temp[1,], df_total)
+
+# export merged dataset
+write_xlsx(df_total,file.path(datadir, "Merged Human Plasma and CSF data set.xlsx"))
+```
+
+
+```{r}
+# analyze correlation between plasma AB42/40 and csf abeta42
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_ab4240_csf_ab42.pdf", width = 10, height = 10)
+ggplot(df_total, aes(x = AB42_40, y = Abeta42)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Plasma Ab42/40 and CSF Abeta42", x="Plasma AB42/40", y= "CSF Abeta42") +
+  theme_pubr()
+dev.off()
+```
+```{r}
+# analyze correlation between plasma AB42/40 and csf ptau181
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_ab4240_csf_ptau181.pdf", width = 10, height = 10)
+ggplot(df_total, aes(x= AB42_40, y = pTau181)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Plasma Ab42/40 and CSF pTau181", x="Plasma AB42/40", y= "CSF pTau181") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# analyze correlation between plasma pTau181 and csf abeta42
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_ptau181_csf_abeta42.pdf", width = 10, height = 10)
+ggplot(df_total, aes(x = AvTau_pT181_AvPOPL, y = Abeta42)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Plasma pTau181 and CSF abeta42", x ="Plasma pTau181", y = "CSF Abeta42") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# analyze correlation between plasma pTau181 and csf ptau181
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_ptau181_csf_ptau181.pdf", width = 10, height = 10)
+ggplot(df_total, aes(x = AvTau_pT181_AvPOPL, y = pTau181)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(method = "pearson") +
+  labs(title="Correlation Between Plasma pTau181 and CSF pTau181", x ="Plasma pTau181", y = "CSF pTau181") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# Create binrary variable for abeta positive and negative groups based on CSF Abeta 42
+# Abeta42 Positive if Abeta < 190, negative if Abeta > 190
+abeta_cutoff = 190
+df_total$abeta_pos <- as.numeric(df_total$Abeta42 < abeta_cutoff)
+
+# Create tau positive and negative groups based on CSF ptau
+# pTau positive if value > 78, negative if value < 78
+ptau_cutoff = 78
+df_total$ptau_pos <- as.numeric(df_total$pTau181 > ptau_cutoff)
+```
+
+
+```{r}
+# Dot Plot human plasma ab42/40 by Abeta Positive
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_abeta4240_by_abeta_pos.pdf", width = 10, height = 10)
+ggplot(df_total, aes(y = AB42_40, x = as.factor(abeta_pos))) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=1) + 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+                 geom="pointrange", color="red") +
+  stat_compare_means(method = "wilcox.test") +
+  labs(title="Human Plasma Ab42/40 by CSF Abeta Positive",
+        x ="CSF Abeta Positive", y = "Plasma Ab42/40") +
+  scale_x_discrete(labels= c("No", "Yes")) +
+  theme_pubr()
+dev.off()
+
+# Dot Plot human plasma ptau 181 by pTau Positive
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/ebi/human/results/pla_ptau181_by_ptau_pos.pdf", width = 10, height = 10)
+ggplot(df_total, aes(y = AvTau_pT181_AvPOPL, x = as.factor(ptau_pos))) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=1) + 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+                 geom="pointrange", color="red") +
+  stat_compare_means(method = "wilcox.test", label.x = 1.5, label.y = 3) +
+  labs(title="Human Plasma pTau by CSF pTau Positive",
+        x ="CSF pTau181 Positive", y = "Plasma pTau") +
+  scale_x_discrete(labels= c("No", "Yes")) +
+  theme_pubr()
+dev.off()
+```
+
+#### DRF Monkeys Extra Plots for TG and ApoE4 (Data from Dr. Kerman)
+```{r}
+# Read in Data Set for TG
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/data"
+df_tg = read_xlsx(file.path(datadir, "TG and apoE data.xlsx"), sheet = "TG data")
+
+# select only relevant columns, delete row 3 as extra data
+df_tg = df_tg[,c(3,4,5,6,8,12)]
+
+# rename the columns
+colnames(df_tg)[c(3,4,5,6)] = c("Point","Hour", "ID", "TG")
+
+# re-code time
+df_tg$time <- paste(df_tg$"Day", df_tg$"Point")
+
+# calculate percentage data for TG concentration (mg/dL) using each low-dose monkey's day1 10min as 100%
+df_percent = data.frame()
+for (id in c(3, 4, 11, 12)){
+  df_temp = subset(df_tg[13:60,], ID == id, select = TG)
+  for (row in 2:nrow(df_temp)){
+    df_temp[row,] = df_temp[row,]/df_temp[1,]*100
+  }
+  df_temp[1,] = 100
+  df_percent = rbind(df_percent, df_temp)
+}
+
+# add ID, time, and dose to df_percent, which now only contains low dose
+df_percent$ID = c(rep(3,12), rep(4,12), rep(11,12), rep(12,12))
+df_percent$time = c(rep(df_tg[1:12,]$time,4))
+df_percent$dose = 75
+
+# calculate percentage data for TG using high-dose monkey (ID=6)'s day 1 10min as 100%
+df_high = subset(df_tg[1:12,], select = TG)
+for (row in 2:nrow(df_high)) {
+  df_high[row,] = df_high[row,]/df_high[1,]*100
+}
+df_high[1,] = 100
+
+# add ID, time, and dose to df_high (data frame for high dose), then append to df_percent
+df_high$ID = 6
+df_high$time = df_tg[1:12,]$time
+df_high$dose = 150
+df_percent = rbind(df_percent, df_high)
+
+# calculate percentage data for TG using each placebo monkey's day 1 10min as 100%
+df_placebo = data.frame()
+for (id in c(1, 2)){
+  df_temp = subset(df_tg[62:65,], ID == id, select = TG)
+  for (row in 2:nrow(df_temp)){
+    df_temp[row,] = df_temp[row,]/df_temp[1,]*100
+  }
+  df_temp[1,] = 100
+  df_placebo = rbind(df_placebo, df_temp)
+}
+
+# add ID, time, and dose to df_placebo, then append to df_percent
+df_placebo$ID = c(1,1,2,2)
+df_placebo$time = rep(c("DAY1 10MIN","DAY9 10MIN"),2)
+df_placebo$dose = 0
+df_percent = rbind(df_percent, df_placebo)
+
+# define time_values and make time an ordered factor
+time_values = df_tg[1:12,]$time
+df_percent$time = factor(df_percent$time, levels = time_values, ordered = TRUE)
+
+# sort df_percent by dose, ID, and time
+df_percent = df_percent[order(df_percent$dose, df_percent$ID, df_percent$time),]
+
+View(df_percent)
+
+# now calculate average TG of all monkeys in a certain dose at each time point
+# helper function was defined earlier
+
+df_summ = data_summary(df_percent, varname="TG", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+View(df_summ)
+
+# then plot population profile for TG percentage of day1 10min
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/TG_extra_drf_monkey.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = TG, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(aes(ymin=TG - sd, ymax=TG + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study Monkey TG Concentration Over Time", x="Time", y = "Percentage of Day 1 10 min (%)", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+# Read in Data Set for ApoE
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/data"
+df_apoe = read_xlsx(file.path(datadir, "TG and apoE data.xlsx"), sheet = "ApoE data")
+View(df_apoe)
+
+# select only relevant columns
+df_apoe = df_apoe[,c(3,4,5,6,8,12)]
+df_apoe = df_apoe[-c(3),]
+
+# rename the columns
+colnames(df_apoe)[c(3,4,5,6)] = c("Point","Hour", "ID", "Apoe")
+
+# re-code time
+df_apoe$time <- paste(df_apoe$"Day", df_apoe$"Point")
+
+# calculate percentage data for Apoe concentration using each low-dose monkey's day1 10min as 100%
+df_percent = data.frame()
+for (id in c(3, 4, 11, 12)){
+  df_temp = subset(df_apoe[13:60,], ID == id, select = Apoe)
+  for (row in 2:nrow(df_temp)){
+    df_temp[row,] = df_temp[row,]/df_temp[1,]*100
+  }
+  df_temp[1,] = 100
+  df_percent = rbind(df_percent, df_temp)
+}
+
+View(df_percent)
+# add ID, time, and dose to df_percent, which now only contains low dose
+df_percent$ID = c(rep(3,12), rep(4,12), rep(11,12), rep(12,12))
+df_percent$time = c(rep(df_apoe[1:12,]$time,4))
+df_percent$dose = 75
+
+# calculate percentage data for Apoe using high-dose monkey (ID=6)'s day 1 10min as 100%
+df_high = subset(df_apoe[1:12,], select = Apoe)
+for (row in 2:nrow(df_high)) {
+  df_high[row,] = df_high[row,]/df_high[1,]*100
+}
+df_high[1,] = 100
+
+# add ID, time, and dose to df_high (data frame for high dose), then append to df_percent
+df_high$ID = 6
+df_high$time = df_apoe[1:12,]$time
+df_high$dose = 150
+df_percent = rbind(df_percent, df_high)
+
+# calculate percentage data for ApoE using each placebo monkey's day 1 10min as 100%
+df_placebo = data.frame()
+for (id in c(1, 2, 10)){
+  df_temp = subset(df_apoe[61:66,], ID == id, select = Apoe)
+  for (row in 2:nrow(df_temp)){
+    df_temp[row,] = df_temp[row,]/df_temp[1,]*100
+  }
+  df_temp[1,] = 100
+  df_placebo = rbind(df_placebo, df_temp)
+}
+
+# add ID, time, and dose to df_placebo, then append to df_percent
+df_placebo$ID = c(1,1,2,2,10,10)
+df_placebo$time = rep(c("DAY1 10MIN","DAY9 10MIN"),3)
+df_placebo$dose = 0
+df_percent = rbind(df_percent, df_placebo)
+
+# define time_values and make time an ordered factor
+time_values = df_apoe[1:12,]$time
+df_percent$time = factor(df_percent$time, levels = time_values, ordered = TRUE)
+
+# sort df_percent by dose, ID, and time
+df_percent = df_percent[order(df_percent$dose, df_percent$ID, df_percent$time),]
+
+View(df_percent)
+
+# now calculate average Apoe of all monkeys in a certain dose at each time point
+# helper function was defined earlier
+
+df_summ = data_summary(df_percent, varname="Apoe", 
+                    groupnames=c("time", "dose"))
+df_summ$dose=as.factor(df_summ$dose)
+
+df_summ$time = factor(df_summ$time, levels = time_values, ordered=TRUE)
+
+View(df_summ)
+
+# then plot population profile for Apoe percentage of day1 10min
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/Apoe_extra_drf_monkey.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = time, y = Apoe, group=dose, color = as.factor(dose))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(aes(ymin=Apoe - sd, ymax=Apoe + sd), width=.2,
+                 position=position_dodge(0.05)) +
+  labs(title="DRF Study Monkey ApoE Concentration Over Time", x="Time", y = "Percentage of Day 1 10 min (%)", color = "Dose (mg/kg)") +
+  theme_pubr()
+dev.off()
+```
+
+### New Data From Dr. Kerman
+```{r}
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/data"
+df_new = read_xlsx(file.path(datadir, "For Haotian-2021_0919_AF4 Fraction data.xlsx"), sheet = "2021_0919_AF4 Fraction data")
+View(df_new)
+
+# rename columns and make time an ordered factor
+colnames(df_new)[c(4,9)] = c("time", "size")
+df_new$time = factor(df_new$time, levels = c("10MIN", "4HR", "12HR"), ordered=TRUE)
+
+# now calculate average APOC3
+# helper function was defined earlier
+df_summ = data_summary(df_new, varname="APOC3", 
+                    groupnames=c("size", "time"))
+View(df_summ)
+
+# then plot APOC3 abundance % versus size (nm) among three time groups (10min, 4hr, 12hr)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/Feb Revision/new fig/APOC3.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = size, y = APOC3, group=as.factor(time), color = as.factor(time))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  geom_errorbar(aes(ymin=APOC3 - sd, ymax=APOC3 + sd), width=.2,
+                  position=position_dodge(0.05)) +
+  labs(title="APOC3 - Percentage Abundance vs. Size", x="Size (nm)", y = "% Abundance", color = "Time Group") +
+  theme_pubr()
+dev.off()
+
+# now calculate average APOE
+# helper function was defined earlier
+df_summ = data_summary(df_new, varname="APOE", 
+                    groupnames=c("size", "time"))
+View(df_summ)
+
+# then plot APOE abundance % versus size (nm) among three time groups (10min, 4hr, 12hr)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/APOE_new_data_no_error_bar.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = size, y = APOE, group=as.factor(time), color = as.factor(time))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  # geom_errorbar(aes(ymin=APOE - sd, ymax=APOE + sd), width=.2,
+  #                position=position_dodge(0.05)) +
+  labs(title="APOE - Percentage Abundance vs. Size", x="Size (nm)", y = "% Abundance", color = "Time Group") +
+  theme_pubr()
+dev.off()
+
+# now calculate average APOA1
+# helper function was defined earlier
+df_summ = data_summary(df_new, varname="APOA1", 
+                    groupnames=c("size", "time"))
+View(df_summ)
+
+# then plot APOA1 abundance % versus size (nm) among three time groups (10min, 4hr, 12hr)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/APOA1_new_data_no_error_bar.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = size, y = APOA1, group=as.factor(time), color = as.factor(time))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  # geom_errorbar(aes(ymin=APOA1 - sd, ymax=APOA1 + sd), width=.2,
+  #                position=position_dodge(0.05)) +
+  labs(title="APOA1 - Percentage Abundance vs. Size", x="Size (nm)", y = "% Abundance", color = "Time Group") +
+  theme_pubr()
+dev.off()
+
+# now calculate average TG
+# helper function was defined earlier
+df_summ = data_summary(df_new, varname="TG", 
+                    groupnames=c("size", "time"))
+View(df_summ)
+
+# then plot TG abundance % versus size (nm) among three time groups (10min, 4hr, 12hr)
+pdf(file="/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/pop profiles/TG_new_data_no_error_bar.pdf", width = 18, height = 7)
+
+ggplot(df_summ, aes(x = size, y = TG, group=as.factor(time), color = as.factor(time))) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(values=c("blue", "orange", "red")) +
+  # geom_errorbar(aes(ymin=TG - sd, ymax=TG + sd), width=.2,
+  #                position=position_dodge(0.05)) +
+  labs(title="TG - Percentage Abundance vs. Size", x="Size (nm)", y = "% Abundance", color = "Time Group") +
+  theme_pubr()
+dev.off()
+```
+
+```{r}
+### Power analysis/ Sample Size Calculatons
+library(pwr)
+
+# First, Plasma AB42:40
+# Load Data
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data"
+glpratio <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "AB42 40 ratio")
+
+# pull groups for comparison - 10mg, 25mg and placebo at 48hrs (any day)
+placebo = subset(glpratio, min_since_last_inj == 2880 & dose == 0, select = c(ratio))
+dose_10 = subset(glpratio, min_since_last_inj == 2880 & dose == 10, select = c(ratio))
+dose_25 = subset(glpratio, min_since_last_inj == 2880 & dose == 25, select = c(ratio))
+
+# mean and SD for each gruop
+mean_placebo = mean(placebo$ratio)
+sd_placebo = sd(placebo$ratio)
+mean_dose_10 = mean(dose_10$ratio)
+sd_dose_10 = sd(dose_10$ratio)
+mean_dose_25 = mean(dose_25$ratio)
+sd_dose_25 = sd(dose_25$ratio)
+
+# sample size for 10mg vs placebo
+pooled_sd = sqrt((sd_placebo^2 + sd_dose_10^2)/2)
+d = (mean_placebo - mean_dose_10)/pooled_sd
+pwr.t.test(d=0.43, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# sample size for 25mg vs placebo
+pooled_sd = sqrt((sd_placebo^2 + sd_dose_25^2)/2)
+d = (mean_placebo - mean_dose_25)/pooled_sd
+pwr.t.test(d=0.4034, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# pull more groups for comparison
+time_5m = subset(glpratio, min_since_last_inj == 5 & dose != 0)
+time_4h = subset(glpratio, min_since_last_inj == 240 & dose != 0)
+# summarize by dose
+summ_5m = data_summary(time_5m, varname = "ratio", groupnames = "dose")
+summ_4h = data_summary(time_4h, varname = "ratio", groupnames = "dose")
+View(summ_5m)
+View(summ_4h)
+
+# sample size for dose==10 (5 min vs 4hr)
+pooled_sd = sqrt((0.01435866^2 + 0.04322022^2)/2)
+d = (0.1033165 - 0.07255006)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# sample size for dose==25 (5 min vs 4hr)
+pooled_sd = sqrt((0.01723540^2 + 0.01523090^2)/2)
+d = (0.0949206 - 0.06599628)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# Now power analysis for AP2B1
+ap2b1 = subset(change_long, type == "ap2b1")
+View(ap2b1)
+
+# now get mean and SD for each group
+df_summ = data_summary(ap2b1, varname="value", groupnames=c("dose"))
+View(df_summ)
+
+# now get sample size for 75mg vs placebo (dose 2 vs dose 1)
+pooled_sd = sqrt((0.4283833^2 + 0.5577550^2)/2)
+d = (0.54555867 - 0.26314594)/pooled_sd
+pwr.t.test(d=0.5678988, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# now get sample size for 150mg vs placebo (dose 3 vs dose 1)
+pooled_sd = sqrt((0.4283833^2 + 0.1950656^2)/2)
+d = (0.54555867 - 0.06234947)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# now get sample size for 225mg vs placebo (dose 4 vs dose 1)
+pooled_sd = sqrt((0.4283833^2 + 0.4375530^2)/2)
+d = (0.54555867 + 0.11922658)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# more comparison
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/henrik/data"
+df_csfap2b1 = read_xlsx(file.path(datadir, "DRF results GU.xlsx"), sheet = "AP2B1")
+
+# group 2 (75 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 2), varname="csf_ap2b1", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((0.1462436^2 + 0.3601636^2)/2)
+d = (1.131447 - 1.009277)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# group 3 (150 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 3), varname="csf_ap2b1", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((0.6811019^2 + 0.4403191^2)/2)
+d = (1.226455 - 1.109361)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# group 4 (225 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 4), varname="csf_ap2b1", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((0.1270390^2 + 0.2976986^2)/2)
+d = (1.018178 - 0.812069)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# Now power analysis for CSF AB42
+csfab42 = subset(change_long, type == "ab42")
+View(csfab42)
+
+# now get mean and SD for each group
+df_summ = data_summary(csfab42, varname="value", groupnames=c("dose"))
+View(df_summ)
+
+# now get sample size for 75mg vs placebo (dose 2 vs dose 1)
+pooled_sd = sqrt((0.6724501^2 + 0.9214780^2)/2)
+d = (0.8133032 - 0.3416922)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# now get sample size for 150mg vs placebo (dose 3 vs dose 1)
+pooled_sd = sqrt((0.6724501^2 + 0.3046099^2)/2)
+d = (0.8133032 - 0.1335694)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# now get sample size for 225mg vs placebo (dose 4 vs dose 1)
+pooled_sd = sqrt((0.6724501^2 + 0.2581982^2)/2)
+d = (0.8133032 + 0.1806861)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# more comparison
+# group 2 (75 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 2), varname="csf_ab42", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((60.35915^2 + 288.28946^2)/2)
+d = (567.0223 - 548.5267)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# group 3 (150 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 3), varname="csf_ab42", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((329.2786^2 + 159.1400^2)/2)
+d = (623.463 - 521.601)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# group 4 (225 mg/kg) pre vs day 9, paired t-test
+df_summ = data_summary(subset(df_csfap2b1, group == 4), varname="csf_ab42", groupnames=c("time"))
+View(df_summ)
+
+pooled_sd = sqrt((70.62479^2 + 135.94896^2)/2)
+d = (415.1491 - 320.4986)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# Now power analysis for GLP study, plasma apoe4, at 48 h p.i.
+
+# Loading and processing raw data
+datadir = "/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/data"
+glp_apoe_raw <- read_xlsx(file.path(datadir, "GLP USC Individual Data.xlsx"), sheet = "ApoE_raw")
+
+View(glp_apoe_raw)
+
+subject_values = as.vector(colnames(glp_apoe_raw))
+
+counter = 1
+rep_times = c(rep(4,6), rep(9, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_glp_apoe_raw = data.frame(subject)
+
+apoe = numeric()
+
+for(i in 1:ncol(glp_apoe_raw)) {       # for-loop over columns
+  apoe = append(apoe, as.vector(t(glp_apoe_raw[i])))
+}
+
+apoe = apoe[!is.na(apoe)]
+
+df_glp_apoe_raw = cbind(df_glp_apoe_raw, apoe)
+
+View(df_glp_apoe_raw)
+
+df_glp_apoe_raw$time = glpab42$time
+
+df_glp_apoe_raw$dose = glpab42$dose
+
+df_glp_apoe_raw$just_injected = glpab42$just_injected
+
+df_glp_apoe_raw$total_num_inj = glpab42$total_num_inj
+
+df_glp_apoe_raw$treat = glpab42$treat
+
+hr_since_values = c(rep(c(0.083, 48, 0.083, 48), 6), rep(c(0.083, 4, 48, 0.083, 4, 48, 0.083, 4, 48), 12))
+
+length(hr_since_values)
+
+df_glp_apoe_raw$hr_since_inj = hr_since_values
+
+View(df_glp_apoe_raw)
+
+# summarize the data
+
+df_sum = data_summary(subset(df_glp_apoe_raw, hr_since_inj == 48), varname = "apoe", groupnames = "dose")
+View(df_sum)
+
+# now get sample size for 10mg/kg vs placebo
+pooled_sd = sqrt((3.763496^2 + 10.379429^2)/2)
+d = (12.939056 - 8.810417)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# now get sample size for 25mg/kg vs placebo
+pooled_sd = sqrt((3.763496^2 + 5.660852^2)/2)
+d = (14.284833 - 8.810417)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# more comparison: paired t-test, 10 dose group (5 min vs 4hr)
+df_summ = data_summary(subset(df_glp_apoe_raw, dose == 10), varname = "apoe", groupnames = "hr_since_inj")
+View(df_summ)
+pooled_sd = sqrt((3.391997^2 + 4.044145^2)/2)
+d = (12.17194 - 9.07700)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# more comparison: paired t-test, 25 dose group (5 min vs 4hr)
+df_summ = data_summary(subset(df_glp_apoe_raw, dose == 25), varname = "apoe", groupnames = "hr_since_inj")
+View(df_summ)
+pooled_sd = sqrt((4.529940^2 + 4.587158^2)/2)
+d = (11.09667 - 10.76200)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# Now power analysis for TG (DRF Study)
+
+# Load and process data
+drf_tg_raw <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "TG_raw")
+
+View(drf_tg_raw)
+
+subject_values = as.vector(colnames(drf_tg_raw))
+
+counter = 1
+rep_times = c(rep(3,4), rep(13, 12))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_drf_tg_raw = data.frame(subject)
+
+tg = numeric()
+
+for(i in 1:ncol(drf_tg_raw)) {       # for-loop over columns
+  tg = append(tg, as.vector(t(drf_tg_raw[i])))
+}
+
+tg = tg[!is.na(tg)]
+
+df_drf_tg_raw = cbind(df_drf_tg_raw, tg)
+
+View(df_drf_tg_raw)
+
+df_drf_tg_raw$time = drf_chol$time
+
+df_drf_tg_raw$dose = drf_chol$dose
+
+df_drf_tg_raw$just_injected = drf_chol$just_injected
+
+df_drf_tg_raw$hr_since_inj = drf_chol$hr_since_inj
+
+df_drf_tg_raw$total_num_inj = drf_chol$total_num_inj
+
+df_drf_tg_raw$treat = drf_chol$treat
+
+View(df_drf_tg_raw)
+
+# summarize the data
+df_sum_4hr = data_summary(subset(df_drf_tg_raw, hr_since_inj == 4 & dose != 0), varname = "tg", groupnames = "dose")
+View(df_sum_4hr)
+
+df_sum_base = data_summary(subset(df_drf_tg_raw, hr_since_inj == 0 & dose != 0), varname = "tg", groupnames = "dose")
+View(df_sum_base)
+
+# get sample size for 75mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((25.94819^2 + 12.80258^2)/2)
+d = (55.45455 - 36.0575)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# get sample size for 150mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((124.39232^2 + 14.58902^2)/2)
+d = (171.82306 - 54.4150)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# get sample size for 225mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((131.51944^2 + 14.39432^2)/2)
+d = (111.99336 - 38.8575)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# power analysis: GLP study TG
+# first load raw data GLP IDEXX - Triglycerides
+glp_tg_raw <- read_xlsx(file.path(datadir, "GLP IDEXX Individual Data.xlsx"), sheet = "tg_raw")
+
+glp_tg_raw_values = as.vector(t(glp_tg_raw[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_tg_raw$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_tg_raw_values)
+
+df_glp_tg_raw = data.frame(subject_num, glp_tg_raw_values)
+
+time_values = as.vector(colnames(glp_tg_raw))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_tg_raw[3] = time
+
+colnames(df_glp_tg_raw)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_tg_raw[4] = dose
+
+colnames(df_glp_tg_raw)[4] = "dose"
+
+View(df_glp_tg_raw)
+
+treat_values = numeric()
+
+for (d in df_glp_tg_raw$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_tg_raw[5] = treat_values
+
+colnames(df_glp_tg_raw)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_tg_raw[6] = total_num_inj
+
+colnames(df_glp_tg_raw)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_tg_raw[7] = just_injected
+
+colnames(df_glp_tg_raw)[7] = "just_injected"
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_tg_raw[8] = hr_since_inj
+
+colnames(df_glp_tg_raw)[8] = "hr_since_inj"
+
+View(df_glp_tg_raw)
+
+# summarize data
+df_sum = data_summary(subset(df_glp_tg_raw, hr_since_inj == 4), varname = "glp_tg_raw_values", groupnames = "dose")
+
+View(df_sum)
+
+# get sample size for 10 mg vs placebo
+pooled_sd = sqrt((37.02570^2 + 21.44891^2)/2)
+d = (83.94444 - 62.16667)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# get sample size for 25 mg vs placebo
+pooled_sd = sqrt((37.02570^2 + 138.58821^2)/2)
+d = (156.11111 - 62.16667)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# get sample size for 75 mg vs placebo
+pooled_sd = sqrt((37.02570^2 + 165.78977^2)/2)
+d = (186.60000 - 62.16667)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# more comparisons
+df_summ = data_summary(subset(df_glp_tg_raw, dose == 10), varname = "glp_tg_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((21.47654^2 + 21.44891^2)/2)
+d = (83.94444 - 71.77778)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+df_summ = data_summary(subset(df_glp_tg_raw, dose == 25), varname = "glp_tg_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((24.645460^2 + 138.588213^2)/2)
+d = (156.11111 - 64.88889)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+df_summ = data_summary(subset(df_glp_tg_raw, dose == 75), varname = "glp_tg_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((31.02694^2 + 165.78977^2)/2)
+d = (186.60000 - 78.13333)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+
+```{r}
+# Now calculate power analysis for DRF study HDL-chol
+# Load data DRF Study Plasma HDL-cholesterol
+drf_hdl_chol_raw <- read_xlsx(file.path(datadir, "DRF Study Individual Data.xlsx"), sheet = "HDL-c_raw")
+
+subject_values = as.vector(colnames(drf_hdl_chol_raw))
+
+counter = 1
+rep_times = c(rep(3,4), rep(13, 8))
+subject = factor()
+
+for (v in subject_values){
+  print(v)
+  subject = append(subject, rep(v, rep_times[counter]))
+  counter = counter + 1
+}
+
+df_drf_hdl_chol_raw = data.frame(subject)
+
+hdl_chol_raw = numeric()
+
+for(i in 1:ncol(drf_hdl_chol_raw)) {       # for-loop over columns
+  hdl_chol_raw = append(hdl_chol_raw, as.vector(t(drf_hdl_chol_raw[i])))
+}
+
+hdl_chol_raw = hdl_chol_raw[!is.na(hdl_chol_raw)]
+
+df_drf_hdl_chol_raw = cbind(df_drf_hdl_chol_raw, hdl_chol_raw)
+
+df_drf_hdl_chol_raw$time = drf_chol$time[1:116]
+
+df_drf_hdl_chol_raw$dose = drf_chol$dose[1:116]
+
+df_drf_hdl_chol_raw$just_injected = drf_chol$just_injected[1:116]
+
+df_drf_hdl_chol_raw$hr_since_inj = drf_chol$hr_since_inj[1:116]
+
+df_drf_hdl_chol_raw$total_num_inj = drf_chol$total_num_inj[1:116]
+
+df_drf_hdl_chol_raw$treat = drf_chol$treat[1:116]
+
+df_drf_hdl_chol_raw$dose[91:length(df_drf_hdl_chol_raw$dose)] = 225
+
+View(df_drf_hdl_chol_raw)
+
+# summarize the data
+df_sum_4hr = data_summary(subset(df_drf_hdl_chol_raw, hr_since_inj == 4 & dose != 0), varname = "hdl_chol_raw", groupnames = "dose")
+View(df_sum_4hr)
+
+df_sum_base = data_summary(subset(df_drf_hdl_chol_raw, hr_since_inj == 0 & dose != 0), varname = "hdl_chol_raw", groupnames = "dose")
+View(df_sum_base)
+
+# get sample size for 75mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((24.04234^2 + 16.54696^2)/2)
+d = (72.93153 - 32.16863)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# get sample size for 150mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((1.53514^2 + 12.90803^2)/2)
+d = (65.04867 - 26.71901)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+# get sample size for 225mg/kg group at 4 hr p.i. vs its own baseline (paired t-test)
+pooled_sd = sqrt((27.52508^2 + 35.91055^2)/2)
+d = (79.09650 - 35.31413)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+# Power analysis: GLP study IDEXX HDL-Chol
+# First load data
+glp_hdl_raw <- read_xlsx(file.path("/Users/haotianxian/Documents/Dr. Yassine/Darain Project/My analysis/Data", "GLP IDEXX Individual Data.xlsx"), sheet = "glp_hdl_chol_raw")
+
+glp_hdl_raw_values = as.vector(t(glp_hdl_raw[,-1]))
+
+subject_num = numeric()
+
+for  (id in glp_hdl_raw$subject) {
+  subject_num = append(subject_num, cbind(rep(id, 18)))
+}
+
+length(subject_num) == length(glp_hdl_raw_values)
+
+df_glp_hdl_raw = data.frame(subject_num, glp_hdl_raw_values)
+
+time_values = as.vector(colnames(glp_hdl_raw))[-1]
+
+time = rep(time_values, 32)
+
+df_glp_hdl_raw[3] = time
+
+colnames(df_glp_hdl_raw)[3] = "time"
+
+dose_values = c(0, 10, 25, 75)
+
+dose_group_size = c(180, 108, 108, 180)
+
+dose = numeric()
+
+counter = 1
+
+for  (d in dose_values) {
+  dose = append(dose, rep(d, dose_group_size[counter]))
+  counter = counter + 1
+}
+
+df_glp_hdl_raw[4] = dose
+
+colnames(df_glp_hdl_raw)[4] = "dose"
+
+View(df_glp_hdl_raw)
+
+treat_values = numeric()
+
+for (d in df_glp_hdl_raw$dose) {
+  if (d == 0) {
+  treat_values = append(treat_values, 0)
+} else {
+  treat_values = append(treat_values, 1)
+}
+}
+
+df_glp_hdl_raw[5] = treat_values
+
+colnames(df_glp_hdl_raw)[5] = "treat"
+
+inj_num_values = c(rep(1, 6), rep(5, 6), rep(13, 6))
+
+total_num_inj = rep(inj_num_values, 32)
+
+df_glp_hdl_raw[6] = total_num_inj
+
+colnames(df_glp_hdl_raw)[6] = "total_num_inj"
+
+
+just_inj_values = c(1, rep(0, 5), 1, rep(0, 5), 1, rep(0, 5))
+
+just_injected = rep(just_inj_values, 32)
+
+df_glp_hdl_raw[7] = just_injected
+
+colnames(df_glp_hdl_raw)[7] = "just_injected"
+
+
+hr_since_values = c(rep(c(0.083, 2, 4, 12, 24, 48),3))
+
+hr_since_inj = rep(hr_since_values, 32)
+
+df_glp_hdl_raw[8] = hr_since_inj
+
+colnames(df_glp_hdl_raw)[8] = "hr_since_inj"
+
+View(df_glp_hdl_raw)
+
+# Now summarize the data 
+df_sum = data_summary(subset(df_glp_hdl_raw, hr_since_inj == 4), varname = "glp_hdl_raw_values", groupnames = "dose")
+
+View(df_sum)
+
+# get sample size for 10 mg vs placebo
+pooled_sd = sqrt((10.400928^2 + 7.412232^2)/2)
+d = (67.60000 - 54.66667)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# get sample size for 25 mg vs placebo
+pooled_sd = sqrt((16.223520^2 + 10.400928^2)/2)
+d = (67.60000 - 41.44444)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# get sample size for 75 mg vs placebo
+pooled_sd = sqrt((15.029473^2 + 10.400928^2)/2)
+d = (67.60000 - 28.33333)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="two.sample", alternative="greater")
+
+# more comparisons
+df_summ = data_summary(subset(df_glp_hdl_raw, dose == 10), varname = "glp_hdl_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((7.412232^2 + 7.984462^2)/2)
+d = (61.88889 - 54.66667)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+df_summ = data_summary(subset(df_glp_hdl_raw, dose == 25), varname = "glp_hdl_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((16.22352^2 + 17.31079^2)/2)
+d = (56.61111 - 41.44444)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+
+df_summ = data_summary(subset(df_glp_hdl_raw, dose == 75), varname = "glp_hdl_raw_values", groupnames = "hr_since_inj")
+View(df_summ)
+
+pooled_sd = sqrt((15.029473^2 + 17.800814^2)/2)
+d = (44.60000 - 28.33333)/pooled_sd
+pwr.t.test(d=d, sig.level=0.05, power=0.80, type="paired", alternative="greater")
+```
+
+```{r}
+
+```
+
+
+
+
